@@ -90,7 +90,7 @@ function OptInInner() {
   return (
     <div className="min-h-full flex flex-col">
       <header className="border-b border-border px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-        <a href="/" className="text-sm text-accent-text">
+        <a href="/app" className="text-sm text-accent-text">
           ← Creator Scout
         </a>
         <div className="flex items-center gap-3">

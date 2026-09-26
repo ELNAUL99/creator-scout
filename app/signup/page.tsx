@@ -3,11 +3,12 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabaseBrowser";
+import { safePostAuthPath } from "@/lib/paths";
 
 function SignupInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") || "/app";
+  const next = safePostAuthPath(params.get("next"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -89,7 +90,7 @@ function SignupInner() {
         </form>
         <p className="text-sm text-muted text-center">
           Already have an account?{" "}
-          <a className="text-accent-text" href={`/login${next !== "/" ? `?next=${encodeURIComponent(next)}` : ""}`}>
+          <a className="text-accent-text" href={`/login?next=${encodeURIComponent(next)}`}>
             Sign in
           </a>
         </p>

@@ -53,7 +53,7 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (user && (pathname === "/login" || pathname === "/signup")) {
+  if (user && (pathname === "/" || pathname === "/login" || pathname === "/signup")) {
     const home = req.nextUrl.clone();
     home.pathname = "/app";
     home.search = "";
