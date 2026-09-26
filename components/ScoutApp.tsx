@@ -8,6 +8,7 @@ import { followersMatchSize } from "@/lib/sizeRange";
 import { MARKET_REGIONS, MARKETS } from "@/lib/markets";
 import { NICHE_OPTIONS, NICHE_TERMS, type NicheId } from "@/lib/niches";
 import type { DiscoverResponse, ScoredCreator, Platform } from "@/lib/types";
+import type { RisingResponse } from "@/lib/trends";
 import { createSupabaseBrowserClient } from "@/lib/supabaseBrowser";
 import { BrandHomeLink } from "@/components/BrandHomeLink";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -115,6 +116,9 @@ export default function ScoutApp() {
   const [page, setPage] = useState(1);
   const [openId, setOpenId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [trendsLoading, setTrendsLoading] = useState(false);
+  const [trends, setTrends] = useState<RisingResponse | null>(null);
+  const [tiktokTrend, setTiktokTrend] = useState("");
 
   useEffect(() => {
     fetch("/api/status")
@@ -220,6 +224,26 @@ export default function ScoutApp() {
       setError(e instanceof Error ? e.message : "Search failed");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function runTrends() {
+    setTrendsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/trends", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markets, nicheIds, query: tiktokTrend }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Trends failed");
+      setTrends(data);
+      if (data.error) setError(data.error);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Trends failed");
+    } finally {
+      setTrendsLoading(false);
     }
   }
 
@@ -496,16 +520,109 @@ export default function ScoutApp() {
           <button
             type="button"
             onClick={run}
-            disabled={loading || markets.length === 0 || nicheIds.length === 0 || platforms.length === 0}
+            disabled={loading || trendsLoading || markets.length === 0 || nicheIds.length === 0 || platforms.length === 0}
             className="w-full btn-primary font-medium py-2.5"
           >
             {loading ? "Searching…" : "Run discovery"}
           </button>
+          <div className="space-y-2">
+            <p className="text-sm">TikTok trend (hashtag or sound)</p>
+            <input
+              type="text"
+              placeholder="#minecraft / sound name"
+              value={tiktokTrend}
+              onChange={(e) => setTiktokTrend(e.target.value)}
+              className="w-full field p-2 text-sm"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={runTrends}
+            disabled={trendsLoading || loading || markets.length === 0}
+            className="w-full border border-border-strong rounded-lg py-2.5 text-sm font-medium hover:border-accent"
+          >
+            {trendsLoading ? "Searching TikTok index…" : "TikTok rising (small account, high views)"}
+          </button>
+          <p className="text-xs text-muted">
+            TikTok only. Indexed public @handles for that trend — not a TikTok crawl. Open a profile in Opera with Scout
+            Lens to see followers vs views and flag breakouts.
+          </p>
           {error && <p className="text-sm text-red-400">{error}</p>}
         </aside>
 
         <section className="space-y-5">
-          {!result && (
+          {trends && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="font-medium text-lg">TikTok rising</h2>
+                <p className="text-xs text-muted">
+                  Public TikTok profiles indexed for this trend. Breakout = Scout Lens shows few followers and high views
+                  on that account. Login Kit cannot read other people’s videos.
+                </p>
+              </div>
+              {trends.notes.map((n) => (
+                <p key={n} className="text-xs text-amber-500">
+                  {n}
+                </p>
+              ))}
+              {trends.breakouts.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Breakouts (few followers, high views)</p>
+                  {trends.breakouts.map((h) => (
+                    <article key={h.videoId} className="card-sm p-3 text-sm space-y-1">
+                      <p>
+                        <a href={h.channelUrl} target="_blank" rel="noreferrer" className="font-medium hover:text-accent-text">
+                          {h.channelTitle}
+                        </a>{" "}
+                        <span className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">Breakout</span>
+                      </p>
+                      <p className="text-muted text-xs">
+                        {h.market}
+                        {h.country ? ` · ${h.country}` : ""} ·{" "}
+                        {h.followers > 0 ? `${h.followers.toLocaleString()} followers` : "followers via Lens"} ·{" "}
+                        {h.views > 0 ? `${h.views.toLocaleString()} views` : "open in Scout Lens for views"}
+                        {h.followers > 0 && h.views > 0 ? ` · ${h.viewsPerSub.toFixed(1)}× views/follower` : ""}
+                        {h.needsLens ? " · needs Lens" : ""}
+                      </p>
+                      <a href={h.videoUrl} target="_blank" rel="noreferrer" className="text-accent-text text-xs">
+                        {h.videoTitle}
+                      </a>
+                    </article>
+                  ))}
+                </div>
+              )}
+              {trends.trends.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">On this TikTok trend</p>
+                  {trends.trends.map((t) => (
+                    <div key={t.label} className="card-sm p-3 text-sm">
+                      <p className="font-medium">{t.label}</p>
+                      <ul className="mt-1 space-y-1 text-xs text-muted">
+                        {t.hits.slice(0, 4).map((h) => (
+                          <li key={h.videoId}>
+                            <a href={h.videoUrl} target="_blank" rel="noreferrer" className="text-accent-text">
+                              {h.channelTitle}
+                            </a>
+                            {h.breakout ? " · breakout" : h.needsLens ? " · Lens for stats" : ""} ·{" "}
+                            {h.views > 0 ? `${h.views.toLocaleString()} views` : "no view count yet"} ·{" "}
+                            {h.followers > 0 ? `${h.followers.toLocaleString()} followers` : "no follower count yet"}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {trends.breakouts.length === 0 && trends.chart.length > 0 && (
+                <p className="text-sm text-muted">
+                  Indexed TikTok accounts for this topic. None have Lens stats yet that look like a small-follower /
+                  high-view breakout. Open a profile in Opera with Scout Lens, then run this again.
+                </p>
+              )}
+            </div>
+          )}
+
+          {!result && !trends && (
             <div className="card p-8 text-muted">
               <p className="text-lg text-foreground">Pick a niche and a country. Local terms. Ranked, explained, outreach-ready.</p>
               <p className="mt-2 text-sm">
