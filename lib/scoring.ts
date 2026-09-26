@@ -44,6 +44,7 @@ export function audienceMatchScore(opts: {
   targetMarket: string;
   contentInMarketLanguage: boolean;
 }) {
+  if (!opts.targetMarket || opts.targetMarket === "WW") return 70;
   let score = 30;
   if (!opts.channelCountry) score = 60;
   else if (opts.channelCountry.toUpperCase() === opts.targetMarket.toUpperCase()) score = 100;
@@ -72,9 +73,15 @@ export function engagementQualityScore(opts: {
 
 export function brandFitScore(text: string, brand: BrandProfile) {
   const t = text.toLowerCase();
-  let score = 60;
+  let score = 55;
   const goodHits = brand.goodFitWords.filter((w) => t.includes(w.toLowerCase())).length;
-  score += Math.min(35, goodHits * 12);
+  score += Math.min(40, goodHits * 10);
+  const pitchBits = brand.pitch
+    .toLowerCase()
+    .split(/[^a-z0-9]+/i)
+    .filter((w) => w.length > 3);
+  const pitchHits = pitchBits.filter((w) => t.includes(w)).length;
+  score += Math.min(20, pitchHits * 4);
   if (brand.competitors.some((c) => t.includes(c.toLowerCase()))) score -= 45;
   if (brand.riskWords.some((c) => t.includes(c.toLowerCase()))) score -= 60;
   return clamp(score);

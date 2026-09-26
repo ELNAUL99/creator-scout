@@ -3,7 +3,7 @@ import { getMarket } from "./markets";
 import { draftMessage, hoursSaved, ruleReasons } from "./messages";
 import { dictionaryTerms, isNicheId, looksLikePcHardware, shouldExcludePcHardware, buildTermsPerMarket, type NicheId } from "./niches";
 import { scoreCreator } from "./scoring";
-import type { CreatorAccount, DiscoverResponse, ScoredCreator } from "./types";
+import type { BrandProfile, CreatorAccount, DiscoverResponse, ScoredCreator } from "./types";
 
 type SampleSeed = {
   id: string;
@@ -332,12 +332,12 @@ const SEEDS: SampleSeed[] = [
   },
 ];
 
-export function sampleDiscover(brief: string, markets: string[], nicheIds?: string[]): DiscoverResponse {
-  const brand = mergeBrand();
+export function sampleDiscover(brief: string, markets: string[], nicheIds?: string[], brandPartial?: Partial<BrandProfile>): DiscoverResponse {
+  const brand = mergeBrand(brandPartial);
   const date = "2026-09-20";
   const wanted = (nicheIds ?? []).filter(isNicheId);
   const selected = SEEDS.filter((s) => {
-    if (!markets.includes(s.market)) return false;
+    if (markets.length && !markets.includes(s.market)) return false;
     const tags = s.niches ?? (["pc-building", "budget-second-hand"] as NicheId[]);
     if (wanted.length === 0) return true;
     if (!tags.some((n) => wanted.includes(n))) return false;

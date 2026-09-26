@@ -21,7 +21,7 @@ export async function discoverViaSearchIndex(req: DiscoverRequest): Promise<{ cr
     return { creators, notes };
   }
 
-  const markets = req.markets;
+  const markets = req.markets.length ? req.markets : ["WW"];
   const sites = (
     [
       req.platforms.includes("tiktok") ? "tiktok.com" : null,
@@ -34,10 +34,10 @@ export async function discoverViaSearchIndex(req: DiscoverRequest): Promise<{ cr
   }
   let provider = "search API";
   for (const code of markets) {
-    const market = getMarket(code);
+    const market = code === "WW" ? { language: "en", name: "" } : getMarket(code);
     const term = dictionaryTerms(niches, market.language)[0] ?? req.brief;
     for (const site of sites) {
-      const q = `site:${site} "${term}"`;
+      const q = code === "WW" ? `site:${site} "${term}"` : `site:${site} "${term}"`;
       const found = await searchIndexedWeb(q);
       if (found.provider) provider = found.provider;
       const hits = hitsFromSearchItems(found.items);
@@ -75,7 +75,7 @@ export async function discoverViaSearchIndex(req: DiscoverRequest): Promise<{ cr
             likes,
             comments,
             views: Math.max(likes * 12, 1),
-            country: code,
+            country: code === "WW" ? null : code,
             market: code,
             language: market.language,
             briefTerms: dictionaryTerms(niches, market.language),

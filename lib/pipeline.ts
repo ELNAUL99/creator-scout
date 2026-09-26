@@ -39,7 +39,7 @@ function mergeCreators(base: ScoredCreator[], extra: ScoredCreator[]) {
 function termsForMarkets(req: DiscoverRequest): MarketTerms[] {
   const fromIds = [...(req.nicheIds ?? []), req.nicheId ?? ""].filter(isNicheId);
   const niches = fromIds.length ? fromIds : nichesFromBrief(req.brief);
-  return buildTermsPerMarket(niches);
+  return buildTermsPerMarket(niches, req.markets);
 }
 
 function emptyLive(req: DiscoverRequest, notes: string[]): DiscoverResponse {
@@ -216,7 +216,7 @@ export async function runDiscover(req: DiscoverRequest): Promise<DiscoverRespons
   const wantYt = (req.platforms ?? ["youtube"]).includes("youtube");
 
   if (mode === "sample") {
-    return attachLiveSources(req, sampleDiscover(req.brief, req.markets, req.nicheIds));
+    return attachLiveSources(req, sampleDiscover(req.brief, req.markets, req.nicheIds, req.brand));
   }
 
   if (wantYt && key) {
@@ -263,21 +263,28 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
   const allCreators: ScoredCreator[] = [];
   const seen = new Set<string>();
 
-  for (const code of req.markets) {
-    const market = getMarket(code);
-    let terms = dictionaryTerms(niches, market.language);
-    if (llmAvailable() && fromIds.length === 0) {
-      const translated = await llmTranslate(req.brief, market.name, market.languageName);
-      if (translated?.terms.length) {
-        terms = translated.terms;
-      }
+  if (req.localOnly && req.markets.length) {
+    notes.push("YouTube is limited to the countries you selected.");
+  } else {
+    notes.push("Worldwide YouTube search — no country filter unless you tick “Only selected country”.");
+  }
+  const passCodes = req.localOnly && req.markets.length ? req.markets : ["WW"];
+  for (const code of passCodes) {
+    const worldwide = code === "WW";
+    const market = worldwide
+      ? { language: "en", ytRegion: "", name: "Worldwide", languageName: "English" }
+      : getMarket(code);
+    const terms = dictionaryTerms(niches, market.language);
+    if (llmAvailable() && fromIds.length === 0 && req.brand?.pitch) {
+      const translated = await llmTranslate(req.brand.pitch, market.name, market.languageName);
+      if (translated?.terms.length) terms.push(...translated.terms);
     }
 
-    const q = terms[0] || req.brief.split(",")[0]?.trim() || "gameplay";
+    const q = [terms[0], req.brand?.pitch?.split(/\s+/).slice(0, 4).join(" ")].filter(Boolean).join(" ") || req.brief.split(",")[0]?.trim() || "gameplay";
     let search = await searchRecentVideos({
       key,
       q,
-      regionCode: market.ytRegion,
+      regionCode: worldwide ? undefined : market.ytRegion,
       order: "relevance",
       maxResults: 50,
     });
@@ -286,7 +293,7 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
       const retry = await searchRecentVideos({
         key,
         q: terms[1],
-        regionCode: market.ytRegion,
+        regionCode: worldwide ? undefined : market.ytRegion,
         order: "relevance",
         maxResults: 50,
       });
@@ -344,8 +351,8 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
         channel,
         stats,
         hits,
-        briefTerms: terms,
-        marketCode: code,
+        briefTerms: [...new Set([...terms, ...brand.goodFitWords.slice(0, 10)])],
+        marketCode: worldwide ? "WW" : code,
         marketLang: market.language,
         brand,
         dataDate: new Date().toISOString().slice(0, 10),

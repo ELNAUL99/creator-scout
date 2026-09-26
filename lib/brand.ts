@@ -74,13 +74,21 @@ export const PRENEW_BRAND: BrandProfile = {
 };
 
 export function mergeBrand(partial?: Partial<BrandProfile>): BrandProfile {
-  if (!partial) return PRENEW_BRAND;
+  const pitch = (partial?.pitch ?? "").trim();
+  const fromWish = pitch
+    ? pitch
+        .toLowerCase()
+        .split(/[^a-z0-9]+/i)
+        .filter((w) => w.length > 3)
+    : [];
+  const baseWords = pitch ? fromWish : PRENEW_BRAND.goodFitWords;
   return {
     ...PRENEW_BRAND,
     ...partial,
-    goodFitWords: partial.goodFitWords ?? PRENEW_BRAND.goodFitWords,
-    competitors: partial.competitors ?? PRENEW_BRAND.competitors,
-    riskWords: partial.riskWords ?? PRENEW_BRAND.riskWords,
-    disclosureTags: { ...PRENEW_BRAND.disclosureTags, ...partial.disclosureTags },
+    pitch: pitch || PRENEW_BRAND.pitch,
+    goodFitWords: [...new Set([...(partial?.goodFitWords ?? baseWords), ...fromWish])],
+    competitors: partial?.competitors ?? PRENEW_BRAND.competitors,
+    riskWords: partial?.riskWords ?? PRENEW_BRAND.riskWords,
+    disclosureTags: { ...PRENEW_BRAND.disclosureTags, ...partial?.disclosureTags },
   };
 }

@@ -1,7 +1,7 @@
-import { getMarket } from "./markets";
 import { dictionaryTerms, isNicheId, nichesFromBrief, type NicheId } from "./niches";
 import { listLensCaptures } from "./lensStore";
 import { hitsFromSearchItems, searchApiConfigured, searchIndexedWeb } from "./webSearch";
+import { fetchMostPopular } from "./youtube";
 
 export type RisingHit = {
   videoId: string;
@@ -31,11 +31,18 @@ export type RisingResponse = {
   createdAt: string;
   apiUnitsUsed: number;
   notes: string[];
+  suggestions: string[];
   breakouts: RisingHit[];
   chart: RisingHit[];
   trends: RisingTrend[];
   error?: string;
 };
+
+const STOP = new Set(
+  "official video audio lyrics hd mv the and for you your with this that from feat ft vs officialmusic musicvideo shorts fyp foryou tiktok youtube".split(
+    " ",
+  ),
+);
 
 function isBreakout(followers: number, views: number) {
   if (views <= 0) return false;
@@ -49,48 +56,96 @@ function normHandle(h: string) {
   return h.replace(/^@/, "").toLowerCase();
 }
 
+function scoreTag(tag: string) {
+  const t = tag.trim();
+  if (t.length < 2 || t.length > 40) return false;
+  if (STOP.has(t.toLowerCase())) return false;
+  if (/^\d+$/.test(t)) return false;
+  return true;
+}
+
+async function suggestFiveTopics(nicheIds: string[]): Promise<{ topics: string[]; units: number; note: string }> {
+  const key = (process.env.YOUTUBE_API_KEY ?? "").trim();
+  if (!key) {
+    const fromIds = nicheIds.filter(isNicheId) as NicheId[];
+    const niches = fromIds.length ? fromIds : nichesFromBrief("gaming");
+    return {
+      topics: dictionaryTerms(niches, "en").slice(0, 5),
+      units: 0,
+      note: "No YouTube key — suggested niche words instead of a live chart.",
+    };
+  }
+  let units = 0;
+  const counts = new Map<string, number>();
+  for (const cat of [undefined, "10"]) {
+    const pop = await fetchMostPopular({
+      key,
+      regionCode: "US",
+      maxResults: 25,
+      videoCategoryId: cat,
+    });
+    units += pop.units;
+    for (const v of pop.items) {
+      const tags = v.tags.length ? v.tags : v.title.split(/[\s#]+/);
+      for (const raw of tags) {
+        const tag = raw.replace(/^#/, "").trim();
+        if (!scoreTag(tag)) continue;
+        const k = tag.toLowerCase();
+        counts.set(k, (counts.get(k) ?? 0) + 1);
+      }
+    }
+  }
+  const topics = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([t]) => t)
+    .slice(0, 5);
+  return {
+    topics: topics.length ? topics : ["fyp", "viral", "trending"],
+    units,
+    note: "Top 5 topics from YouTube’s live mostPopular chart (US, including Music). Used as TikTok site: queries — not TikTok Creative Center.",
+  };
+}
+
 export async function runRisingTrends(
-  markets: string[],
+  _markets: string[],
   nicheIds: string[],
-  query: string,
+  _query: string,
 ): Promise<RisingResponse> {
   const notes: string[] = [
-    "TikTok-only. There is no official TikTok live-trend API on Login Kit — we do not scrape TikTok search.",
-    "Handles come from Google/Brave site:tiktok.com for this sound/hashtag/topic. Views vs followers appear when Scout Lens has already scored that profile.",
+    "TikTok-only rising. We suggest the five hottest topics from the live video chart, then find public TikTok handles already indexed for those tags. Login Kit cannot read other accounts’ views.",
   ];
+
+  const suggested = await suggestFiveTopics(nicheIds);
+  notes.push(suggested.note);
 
   if (!searchApiConfigured()) {
     return {
       createdAt: new Date().toISOString(),
-      apiUnitsUsed: 0,
+      apiUnitsUsed: suggested.units,
       notes,
+      suggestions: suggested.topics,
       breakouts: [],
       chart: [],
-      trends: [],
+      trends: suggested.topics.map((label) => ({ label, hits: [] })),
       error:
-        "TikTok rising needs GOOGLE_CSE_KEY + GOOGLE_CSE_CX (or Brave). Connect TikTok still cannot read other people’s videos.",
+        "Suggested topics are ready, but TikTok handles need GOOGLE_CSE_KEY + GOOGLE_CSE_CX (or Brave). Open a trending TikTok in Scout Lens for views vs followers.",
     };
   }
 
-  const fromIds = nicheIds.filter(isNicheId) as NicheId[];
-  const niches = fromIds.length ? fromIds : nichesFromBrief(query || "gaming");
-  const topic = query.trim().replace(/^#/, "");
   const chart: RisingHit[] = [];
   const seen = new Set<string>();
   let provider = "search API";
 
-  for (const code of markets.slice(0, 4)) {
-    const market = getMarket(code);
-    const term = topic || dictionaryTerms(niches, market.language)[0] || "fyp";
-    const q = `site:tiktok.com ${topic ? `#${term} OR "${term}"` : `"${term}"`} ${market.name}`;
+  for (const topic of suggested.topics) {
+    const q = `site:tiktok.com "#${topic}" OR "${topic}"`;
     const found = await searchIndexedWeb(q);
     if (found.provider) provider = found.provider;
     const hits = hitsFromSearchItems(found.items).filter((h) => h.platform === "tiktok");
-    for (const hit of hits) {
+    for (const hit of hits.slice(0, 8)) {
       const handle = normHandle(hit.handle);
-      const key = `${code}:${handle}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
+      const key = `${topic}:${handle}`;
+      if (seen.has(handle)) continue;
+      seen.add(handle);
       chart.push({
         videoId: key,
         videoTitle: hit.snippet.slice(0, 160) || `@${handle}`,
@@ -103,10 +158,10 @@ export async function runRisingTrends(
         channelUrl: `https://www.tiktok.com/@${handle}`,
         followers: 0,
         country: null,
-        market: code,
+        market: "WW",
         viewsPerSub: 0,
         breakout: false,
-        tags: [term],
+        tags: [topic],
         needsLens: true,
       });
     }
@@ -127,39 +182,11 @@ export async function runRisingTrends(
     if (cap.url) row.videoUrl = cap.url;
   }
 
-  const topicLower = topic.toLowerCase();
-  for (const cap of lens) {
-    const handle = normHandle(cap.handle);
-    if (chart.some((h) => normHandle(h.channelId) === handle)) continue;
-    const blob = `${cap.bio} ${cap.captions.join(" ")} ${cap.name}`.toLowerCase();
-    if (topicLower && !blob.includes(topicLower)) continue;
-    const breakout = isBreakout(cap.followers, cap.views);
-    if (!breakout && !topicLower) continue;
-    chart.push({
-      videoId: `lens:${handle}`,
-      videoTitle: cap.captions[0] || cap.bio || cap.name,
-      videoUrl: cap.url || `https://www.tiktok.com/@${handle}`,
-      publishedAt: cap.savedAt,
-      views: cap.views,
-      likes: cap.likes,
-      channelId: handle,
-      channelTitle: cap.name || `@${handle}`,
-      channelUrl: `https://www.tiktok.com/@${handle}`,
-      followers: cap.followers,
-      country: cap.country,
-      market: markets[0] ?? "",
-      viewsPerSub: cap.followers > 0 ? cap.views / cap.followers : cap.views,
-      breakout,
-      tags: topic ? [topic] : [],
-      needsLens: false,
-    });
-  }
-
-  notes.push(`TikTok handles from ${provider} site: queries. Open a result in Opera with Scout Lens to fill views and followers.`);
-  if (topic) notes.push(`Topic: #${topic.replace(/^#/, "")}`);
+  notes.push(`TikTok handles from ${provider} for the five suggested topics.`);
 
   const breakouts = chart.filter((h) => h.breakout).sort((a, b) => b.viewsPerSub - a.viewsPerSub);
   const grouped = new Map<string, RisingHit[]>();
+  for (const topic of suggested.topics) grouped.set(topic, []);
   for (const h of chart) {
     const label = h.tags[0] || "tiktok";
     const list = grouped.get(label) ?? [];
@@ -170,8 +197,9 @@ export async function runRisingTrends(
 
   return {
     createdAt: new Date().toISOString(),
-    apiUnitsUsed: 0,
+    apiUnitsUsed: suggested.units,
     notes,
+    suggestions: suggested.topics,
     breakouts,
     chart,
     trends,

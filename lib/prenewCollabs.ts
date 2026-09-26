@@ -59,7 +59,7 @@ export function prenewCollabCreators(req: DiscoverRequest): ScoredCreator[] {
   const brand = mergeBrand(req.brand);
   const out: ScoredCreator[] = [];
   for (const row of COLLABS) {
-    if (!req.markets.includes(row.market)) continue;
+    if (req.markets.length && !req.markets.includes(row.market)) continue;
     if (!nicheMatch(wanted, row)) continue;
     if (!platformMatch(req, row)) continue;
     const market = getMarket(row.market);

@@ -206,6 +206,58 @@ export async function fetchVideos(key: string, ids: string[]): Promise<{ items: 
   return { items, units };
 }
 
+export async function fetchMostPopular(opts: {
+  key: string;
+  regionCode: string;
+  maxResults?: number;
+  videoCategoryId?: string;
+}): Promise<{ items: (YtVideoStats & { tags: string[]; channelTitle: string })[]; units: number }> {
+  type VRes = {
+    items?: {
+      id?: string;
+      snippet?: {
+        title?: string;
+        description?: string;
+        publishedAt?: string;
+        channelId?: string;
+        channelTitle?: string;
+        tags?: string[];
+        defaultLanguage?: string;
+        defaultAudioLanguage?: string;
+      };
+      statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
+      status?: { madeForKids?: boolean; selfDeclaredMadeForKids?: boolean };
+    }[];
+  };
+  const params: Record<string, string> = {
+    part: "snippet,statistics,status",
+    chart: "mostPopular",
+    regionCode: opts.regionCode,
+    maxResults: String(opts.maxResults ?? 25),
+  };
+  if (opts.videoCategoryId) params.videoCategoryId = opts.videoCategoryId;
+  const data = await ytGet<VRes>("videos", params, opts.key);
+  const items: (YtVideoStats & { tags: string[]; channelTitle: string })[] = [];
+  for (const v of data.items ?? []) {
+    if (!v.id || !v.snippet?.channelId) continue;
+    items.push({
+      id: v.id,
+      title: v.snippet.title ?? "",
+      description: v.snippet.description ?? "",
+      publishedAt: v.snippet.publishedAt ?? "",
+      channelId: v.snippet.channelId,
+      views: num(v.statistics?.viewCount),
+      likes: num(v.statistics?.likeCount),
+      comments: num(v.statistics?.commentCount),
+      madeForKids: Boolean(v.status?.madeForKids || v.status?.selfDeclaredMadeForKids),
+      defaultLanguage: v.snippet.defaultAudioLanguage ?? v.snippet.defaultLanguage,
+      tags: v.snippet.tags ?? [],
+      channelTitle: v.snippet.channelTitle ?? "",
+    });
+  }
+  return { items, units: 1 };
+}
+
 export function channelSocials(description: string) {
   return extractHandles(description);
 }

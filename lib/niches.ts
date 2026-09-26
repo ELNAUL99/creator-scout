@@ -405,6 +405,20 @@ export function englishTerms(niches: NicheId[]): string[] {
 
 export function buildTermsPerMarket(niches: NicheId[], codes?: string[]): MarketTerms[] {
   const originalTerms = englishTerms(niches);
+  if (codes && codes.length === 0) {
+    return [
+      {
+        country: "WW",
+        countryName: "Worldwide",
+        language: "en",
+        languageName: "English",
+        terms: originalTerms,
+        originalTerms,
+        niche: niches[0],
+        source: "dictionary" as const,
+      },
+    ];
+  }
   const list = codes?.length ? codes.map((c) => getMarket(c)) : MARKETS;
   return list.map((market) => ({
     country: market.code,

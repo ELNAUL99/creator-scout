@@ -8,14 +8,19 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json()) as DiscoverRequest;
     const nicheIds = (body.nicheIds ?? []).filter(isNicheId);
-    if (!body.markets?.length || !nicheIds.length) {
-      return NextResponse.json({ error: "niche and markets are required" }, { status: 400 });
+    if (!nicheIds.length) {
+      return NextResponse.json({ error: "niche is required" }, { status: 400 });
     }
-    const brief = nicheIds.map((id) => NICHE_TERMS[id].label).join(", ");
+    const brief = [
+      nicheIds.map((id) => NICHE_TERMS[id].label).join(", "),
+      (body.brand?.pitch ?? "").trim(),
+    ]
+      .filter(Boolean)
+      .join(". ");
     const workspaceId = await getCurrentWorkspaceId();
     const result = await runDiscover({
       brief,
-      markets: body.markets,
+      markets: body.markets ?? [],
       nicheIds,
       nicheId: body.nicheId,
       sizeMin: body.sizeMin ?? 10_000,

@@ -118,7 +118,7 @@ export default function ScoutApp() {
   const [copied, setCopied] = useState(false);
   const [trendsLoading, setTrendsLoading] = useState(false);
   const [trends, setTrends] = useState<RisingResponse | null>(null);
-  const [tiktokTrend, setTiktokTrend] = useState("");
+  const [brandWish, setBrandWish] = useState("");
 
   useEffect(() => {
     fetch("/api/status")
@@ -210,6 +210,7 @@ export default function ScoutApp() {
           webDiscover,
           includePrenewCollabs,
           localOnly,
+          brand: brandWish.trim() ? { pitch: brandWish.trim() } : undefined,
         }),
       });
       const data = await res.json();
@@ -234,7 +235,7 @@ export default function ScoutApp() {
       const res = await fetch("/api/trends", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ markets, nicheIds, query: tiktokTrend }),
+        body: JSON.stringify({ nicheIds }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Trends failed");
@@ -335,7 +336,7 @@ export default function ScoutApp() {
           )}
           <CheckDropdown
             label="Country"
-            placeholder="Select countries…"
+            placeholder="Any country (worldwide by default)…"
             searchable
             selected={markets}
             onChange={setMarkets}
@@ -348,11 +349,19 @@ export default function ScoutApp() {
             }))}
           />
           {markets.length === 0 && (
-            <p className="text-xs text-red-400">Pick at least one country.</p>
+            <p className="text-xs text-muted">Worldwide search — no country filter. Select countries only for local-language terms.</p>
           )}
-          <p className="text-xs text-muted">
-            Results are limited to the countries you select — a country search returns only creators from that country.
-          </p>
+          <div className="space-y-2">
+            <p className="text-sm">What should creators feel like for the brand?</p>
+            <textarea
+              rows={3}
+              value={brandWish}
+              onChange={(e) => setBrandWish(e.target.value)}
+              placeholder="e.g. witty Finnish Minecraft builders who already talk refurbished PCs, not luxury unboxings"
+              className="w-full field p-2 text-sm"
+            />
+            <p className="text-xs text-muted">Used in fit scoring so matches are closer to the brand you actually want.</p>
+          </div>
           <div className="space-y-2">
             <p className="text-sm">Platforms</p>
             <div className="flex flex-wrap gap-2">
@@ -520,32 +529,22 @@ export default function ScoutApp() {
           <button
             type="button"
             onClick={run}
-            disabled={loading || trendsLoading || markets.length === 0 || nicheIds.length === 0 || platforms.length === 0}
+            disabled={loading || trendsLoading || nicheIds.length === 0 || platforms.length === 0}
             className="w-full btn-primary font-medium py-2.5"
           >
             {loading ? "Searching…" : "Run discovery"}
           </button>
-          <div className="space-y-2">
-            <p className="text-sm">TikTok trend (hashtag or sound)</p>
-            <input
-              type="text"
-              placeholder="#minecraft / sound name"
-              value={tiktokTrend}
-              onChange={(e) => setTiktokTrend(e.target.value)}
-              className="w-full field p-2 text-sm"
-            />
-          </div>
           <button
             type="button"
             onClick={runTrends}
-            disabled={trendsLoading || loading || markets.length === 0}
+            disabled={trendsLoading || loading}
             className="w-full border border-border-strong rounded-lg py-2.5 text-sm font-medium hover:border-accent"
           >
-            {trendsLoading ? "Searching TikTok index…" : "TikTok rising (small account, high views)"}
+            {trendsLoading ? "Loading live trends…" : "TikTok rising — top 5 now"}
           </button>
           <p className="text-xs text-muted">
-            TikTok only. Indexed public @handles for that trend — not a TikTok crawl. Open a profile in Opera with Scout
-            Lens to see followers vs views and flag breakouts.
+            Suggests the five hottest topics from the live video chart, then finds indexed TikTok handles. Open a profile
+            in Scout Lens for followers vs views.
           </p>
           {error && <p className="text-sm text-red-400">{error}</p>}
         </aside>
@@ -556,9 +555,18 @@ export default function ScoutApp() {
               <div>
                 <h2 className="font-medium text-lg">TikTok rising</h2>
                 <p className="text-xs text-muted">
-                  Public TikTok profiles indexed for this trend. Breakout = Scout Lens shows few followers and high views
-                  on that account. Login Kit cannot read other people’s videos.
+                  Suggested live topics (not a search box). Breakout = Scout Lens shows few followers and high views.
                 </p>
+                {trends.suggestions?.length ? (
+                  <p className="text-sm mt-2">
+                    Now:{" "}
+                    {trends.suggestions.map((s) => (
+                      <span key={s} className="inline-block mr-2 mb-1 rounded-full bg-accent-soft px-2 py-0.5 text-xs">
+                        #{s}
+                      </span>
+                    ))}
+                  </p>
+                ) : null}
               </div>
               {trends.notes.map((n) => (
                 <p key={n} className="text-xs text-amber-500">
@@ -660,7 +668,7 @@ export default function ScoutApp() {
                 </p>
               ))}
               <div className="card-sm p-3 text-sm max-h-80 overflow-y-auto">
-                <p className="text-muted mb-1">Local search terms — all {result.termsPerMarket.length} countries</p>
+                <p className="text-muted mb-1">Local search terms</p>
                 {result.termsPerMarket[0]?.originalTerms?.length ? (
                   <p className="text-xs mb-2">
                     Original (English): {result.termsPerMarket[0].originalTerms.join(", ")}
@@ -693,7 +701,12 @@ export default function ScoutApp() {
                   Show brand-risk flags
                 </label>
                 <label className="text-sm flex gap-2">
-                  <input type="checkbox" checked={localOnly} onChange={(e) => setLocalOnly(e.target.checked)} />
+                  <input
+                    type="checkbox"
+                    checked={localOnly}
+                    disabled={markets.length === 0}
+                    onChange={(e) => setLocalOnly(e.target.checked)}
+                  />
                   Only selected country
                 </label>
                 <button
