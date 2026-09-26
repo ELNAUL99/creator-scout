@@ -92,8 +92,11 @@ function latestContentUrl(c: ScoredCreator) {
 export default function ScoutApp() {
   const [nicheIds, setNicheIds] = useState<NicheId[]>([]);
   const [markets, setMarkets] = useState<string[]>(DEFAULT_MARKETS);
-  const [includeNano, setIncludeNano] = useState(true);
-  const [includeMacro, setIncludeMacro] = useState(true);
+  // Size filters (0 = no limit). Default: no limits — serve any creator size.
+  const [followerMin, setFollowerMin] = useState(0);
+  const [followerMax, setFollowerMax] = useState(0);
+  const [viewMin, setViewMin] = useState(0);
+  const [viewMax, setViewMax] = useState(0);
   const [platforms, setPlatforms] = useState<Platform[]>(["youtube", "tiktok", "instagram"]);
   const [searchConfigured, setSearchConfigured] = useState(false);
   const [instagramConfigured, setInstagramConfigured] = useState(false);
@@ -119,11 +122,15 @@ export default function ScoutApp() {
 
   const visible = useMemo(() => {
     if (!result) return [];
+    const fMax = followerMax > 0 ? followerMax : Infinity;
+    const vMax = viewMax > 0 ? viewMax : Infinity;
     return result.creators.filter((c) => {
       if (gemsOnly && !c.hiddenGem) return false;
       if (!showFlagged && c.flags.length > 0) return false;
-      if (!includeNano && c.followers > 0 && c.followers < 10_000) return false;
-      if (!includeMacro && c.followers >= 250_000) return false;
+      // Follower / subscriber range (only filter creators whose count is known).
+      if (c.followers > 0 && (c.followers < followerMin || c.followers > fMax)) return false;
+      // Avg-views range (only filter creators whose avg views is known).
+      if (c.avgViews > 0 && (c.avgViews < viewMin || c.avgViews > vMax)) return false;
       // Always constrain to the selected country: a country search returns only that country.
       const text = `${c.displayName} ${c.recentContent.map((p) => p.titleOrCaption).join(" ")}`;
       return belongsToMarket({
@@ -133,7 +140,7 @@ export default function ScoutApp() {
         text,
       });
     });
-  }, [result, gemsOnly, showFlagged, includeNano, includeMacro]);
+  }, [result, gemsOnly, showFlagged, followerMin, followerMax, viewMin, viewMax]);
 
   async function run() {
     setLoading(true);
@@ -146,10 +153,11 @@ export default function ScoutApp() {
           brief: nicheIds.map((id) => NICHE_TERMS[id].label).join(", "),
           nicheIds,
           markets,
-          sizeMin: 10_000,
-          sizeMax: 250_000,
-          includeNano,
-          includeMacro,
+          sizeMin: followerMin,
+          sizeMax: followerMax > 0 ? followerMax : 100_000_000,
+          // Don't let the server pre-drop by tier — the range filters below handle sizing.
+          includeNano: true,
+          includeMacro: true,
           timeWindowDays: 90,
           platforms,
           mode: "auto",
@@ -313,14 +321,92 @@ export default function ScoutApp() {
               <p className="text-xs text-red-400">Pick at least one platform.</p>
             )}
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={includeNano} onChange={(e) => setIncludeNano(e.target.checked)} />
-            Include nano (under 10k)
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={includeMacro} onChange={(e) => setIncludeMacro(e.target.checked)} />
-            Include biggest names (250k+)
-          </label>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm">Followers / subscribers</p>
+              {(followerMin > 0 || followerMax > 0) && (
+                <button
+                  type="button"
+                  className="text-xs text-accent-text"
+                  onClick={() => {
+                    setFollowerMin(0);
+                    setFollowerMax(0);
+                  }}
+                >
+                  Any size
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: "Nano <10k", min: 0, max: 10_000 },
+                { label: "Micro 10–50k", min: 10_000, max: 50_000 },
+                { label: "Mid 50–250k", min: 50_000, max: 250_000 },
+                { label: "Macro 250k–1M", min: 250_000, max: 1_000_000 },
+                { label: "Mega 1M+", min: 1_000_000, max: 0 },
+              ].map((p) => {
+                const on = followerMin === p.min && followerMax === p.max;
+                return (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => {
+                      setFollowerMin(p.min);
+                      setFollowerMax(p.max);
+                    }}
+                    className={`rounded-full px-2.5 py-1 text-xs border transition-colors ${
+                      on
+                        ? "bg-accent text-accent-foreground border-transparent"
+                        : "bg-surface border-border text-muted hover:text-foreground"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                placeholder="Min"
+                value={followerMin || ""}
+                onChange={(e) => setFollowerMin(Math.max(0, Number(e.target.value) || 0))}
+                className="w-full field p-2 text-sm"
+              />
+              <span className="text-muted text-sm">–</span>
+              <input
+                type="number"
+                min={0}
+                placeholder="Max (any)"
+                value={followerMax || ""}
+                onChange={(e) => setFollowerMax(Math.max(0, Number(e.target.value) || 0))}
+                className="w-full field p-2 text-sm"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm">Avg views per video</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                placeholder="Min"
+                value={viewMin || ""}
+                onChange={(e) => setViewMin(Math.max(0, Number(e.target.value) || 0))}
+                className="w-full field p-2 text-sm"
+              />
+              <span className="text-muted text-sm">–</span>
+              <input
+                type="number"
+                min={0}
+                placeholder="Max (any)"
+                value={viewMax || ""}
+                onChange={(e) => setViewMax(Math.max(0, Number(e.target.value) || 0))}
+                className="w-full field p-2 text-sm"
+              />
+            </div>
+          </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={webDiscover} onChange={(e) => setWebDiscover(e.target.checked)} />
             Find TikTok / Instagram via site: search
