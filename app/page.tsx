@@ -77,14 +77,17 @@ export default function Landing() {
             </div>
             <div className="mt-3 space-y-2.5">
               {[
-                { n: "MrRockis", init: "MR", m: "Finland · Minecraft · 90K subs", s: 92 },
-                { n: "Svarbeuse dariti", init: "SD", m: "Lithuania · GTA · 75K subs", s: 88 },
+                { n: "MrRockis", img: "/creators/mrrockis.png", m: "Finland · Minecraft · 90K subs", s: 92 },
+                { n: "Svarbeuse dariti", img: "/creators/svarbeuse.jpg", m: "Lithuania · GTA · 75K subs", s: 88 },
               ].map((c) => (
                 <div key={c.n} className="card-sm flex items-center justify-between px-3 py-2.5">
                   <div className="flex items-center gap-3">
-                    <span className="grid h-9 w-9 place-items-center rounded-full bg-accent-soft text-accent-text text-xs font-semibold">
-                      {c.init}
-                    </span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={c.img}
+                      alt={c.n}
+                      className="h-9 w-9 rounded-full object-cover bg-accent-soft"
+                    />
                     <div>
                       <div className="text-sm font-medium">{c.n}</div>
                       <div className="text-[11px] text-muted">{c.m}</div>
