@@ -11,16 +11,16 @@ export function LegalShell({
 }) {
   return (
     <div className="min-h-full flex flex-col">
-      <header className="border-b border-emerald-900/40 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-        <a href="/" className="text-sm text-emerald-400">
+      <header className="border-b border-border px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+        <a href="/" className="text-sm text-accent-text">
           ← Creator Scout
         </a>
         <LegalNav />
       </header>
-      <article className="flex-1 mx-auto max-w-2xl px-6 py-10 space-y-5 text-sm text-zinc-300 leading-relaxed">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-400">Prenew</p>
-        <h1 className="text-2xl font-semibold text-zinc-100">{title}</h1>
-        <p className="text-xs text-zinc-500">Last updated {LEGAL_UPDATED}. Written for Creator Scout — not a third-party template.</p>
+      <article className="flex-1 mx-auto max-w-2xl px-6 py-10 space-y-5 text-sm text-muted leading-relaxed">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-accent-text">Prenew</p>
+        <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
+        <p className="text-xs text-muted">Last updated {LEGAL_UPDATED}. Written for Creator Scout — not a third-party template.</p>
         {children}
       </article>
       <SiteFooter />
@@ -30,7 +30,7 @@ export function LegalShell({
 
 export function LegalNav() {
   return (
-    <nav className="flex flex-wrap gap-4 text-sm text-zinc-400">
+    <nav className="flex flex-wrap gap-4 text-sm text-muted">
       <a className="hover:text-white" href="/lens">
         Scout Lens
       </a>
@@ -49,12 +49,12 @@ export function LegalNav() {
 
 export function SiteFooter() {
   return (
-    <footer className="mt-auto border-t border-zinc-800 px-6 py-4 text-xs text-zinc-500 flex flex-wrap gap-4">
+    <footer className="mt-auto border-t border-border px-6 py-4 text-xs text-muted flex flex-wrap gap-4">
       <span>© {new Date().getFullYear()} Prenew · Creator Scout</span>
-      <a className="hover:text-zinc-200" href="/terms">
+      <a className="hover:text-foreground" href="/terms">
         Terms of Service
       </a>
-      <a className="hover:text-zinc-200" href="/privacy">
+      <a className="hover:text-foreground" href="/privacy">
         Privacy Policy
       </a>
     </footer>

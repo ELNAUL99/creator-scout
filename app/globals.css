@@ -1,19 +1,155 @@
 @import "tailwindcss";
 
-:root {
+/* ---------------------------------------------------------------------------
+   Theme tokens. Light (default) matches the Fieldscope lavender/purple look;
+   dark keeps the original emerald-on-near-black palette.
+   Theme is switched via data-theme on <html> (see ThemeToggle + layout script).
+--------------------------------------------------------------------------- */
+:root,
+:root[data-theme="light"] {
+  --background: #f3f2fb;
+  --page-gradient: radial-gradient(1200px 700px at 15% -5%, #efe9fe 0%, rgba(239, 233, 254, 0) 55%),
+    radial-gradient(1000px 700px at 95% 0%, #e7edfe 0%, rgba(231, 237, 254, 0) 50%),
+    linear-gradient(160deg, #f4f1fd 0%, #eef1fd 55%, #ecf7f6 100%);
+  --surface: #ffffff;
+  --surface-2: #f5f4fc;
+  --surface-hover: #faf9ff;
+  --foreground: #191527;
+  --muted: #6d6883;
+  --border: #e7e3f5;
+  --border-strong: #d9d3ee;
+  --accent: #6d5efc;
+  --accent-2: #8b5cf6;
+  --accent-foreground: #ffffff;
+  --accent-soft: #ecebfe;
+  --accent-text: #5a4be0;
+  --ring: rgba(109, 94, 252, 0.35);
+  --shadow-sm: 0 1px 2px rgba(40, 30, 90, 0.06), 0 1px 3px rgba(40, 30, 90, 0.05);
+  --shadow-md: 0 10px 30px -14px rgba(60, 45, 130, 0.28);
+  --shadow-lg: 0 24px 60px -24px rgba(60, 45, 130, 0.35);
+}
+
+:root[data-theme="dark"] {
   --background: #0b0f0c;
+  --page-gradient: radial-gradient(1100px 700px at 12% -8%, rgba(16, 185, 129, 0.10) 0%, rgba(16, 185, 129, 0) 55%),
+    radial-gradient(900px 600px at 95% 0%, rgba(16, 185, 129, 0.06) 0%, rgba(16, 185, 129, 0) 50%),
+    #0b0f0c;
+  --surface: #101613;
+  --surface-2: #151b17;
+  --surface-hover: #17201b;
   --foreground: #e8eee9;
+  --muted: #9aa6a0;
+  --border: #22302a;
+  --border-strong: #2c3d34;
+  --accent: #10b981;
+  --accent-2: #34d399;
+  --accent-foreground: #04140d;
+  --accent-soft: rgba(16, 185, 129, 0.12);
+  --accent-text: #34d399;
+  --ring: rgba(16, 185, 129, 0.35);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 12px 30px -14px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 24px 60px -24px rgba(0, 0, 0, 0.7);
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-hover: var(--surface-hover);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
-  background: var(--background);
+  background: var(--page-gradient);
+  background-attachment: fixed;
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* Reusable surface + control primitives ----------------------------------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-md);
+}
+
+.card-sm {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.field {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  color: var(--foreground);
+}
+.field::placeholder {
+  color: var(--muted);
+}
+.field:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  color: var(--accent-foreground);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-md);
+  transition: filter 0.15s ease, transform 0.05s ease;
+}
+.btn-primary:hover {
+  filter: brightness(1.05);
+}
+.btn-primary:active {
+  transform: translateY(1px);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+}
+
+.btn-ghost {
+  background: var(--surface);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  transition: background 0.15s ease;
+}
+.btn-ghost:hover {
+  background: var(--surface-hover);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.badge-dot::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--accent);
 }

@@ -18,10 +18,20 @@ export const metadata: Metadata = {
     "Worldwide influencer discovery for micro and mid-tier creators on YouTube, TikTok and Instagram.",
 };
 
+const themeScript = `(function(){try{var t=localStorage.getItem('creator-scout-theme');if(t!=='dark'&&t!=='light'){t='light';}document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','light');}})();`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-[#0b0f0c] text-zinc-100">{children}</body>
+    <html
+      lang="en"
+      data-theme="light"
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
+      <body className="min-h-full flex flex-col text-foreground">{children}</body>
     </html>
   );
 }

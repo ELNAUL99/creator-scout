@@ -8,8 +8,9 @@ import { DEFAULT_MARKETS, MARKET_REGIONS, MARKETS } from "@/lib/markets";
 import { NICHE_OPTIONS, NICHE_TERMS, type NicheId } from "@/lib/niches";
 import type { DiscoverResponse, ScoredCreator } from "@/lib/types";
 import { createSupabaseBrowserClient } from "@/lib/supabaseBrowser";
+import ThemeToggle from "@/components/ThemeToggle";
 
-const SELECT_CLASS = "mt-1 w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-sm";
+const SELECT_CLASS = "mt-1 w-full bg-surface-2 border border-border rounded-lg p-2 text-sm";
 
 function csvEscape(v: string) {
   if (/[",\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
@@ -226,28 +227,29 @@ export default function ScoutApp() {
   const under50 = result?.creators.filter((c) => c.followers < 50_000).length ?? 0;
 
   return (
-    <div className="min-h-full flex flex-col bg-[#0b0f0c] text-zinc-100">
-      <header className="border-b border-emerald-900/40 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+    <div className="min-h-full flex flex-col text-foreground">
+      <header className="border-b border-border px-6 py-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-400">Prenew hackathon</p>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-accent-text">Prenew hackathon</p>
           <h1 className="text-xl font-semibold tracking-tight">Creator Scout</h1>
         </div>
         <div className="flex items-center gap-3">
           <LegalNav />
+          <ThemeToggle />
           <button
             onClick={async () => {
               await createSupabaseBrowserClient().auth.signOut();
               window.location.href = "/login";
             }}
-            className="text-sm text-zinc-400 hover:text-emerald-400"
+            className="text-sm text-muted hover:text-accent-text"
           >
             Sign out
           </button>
         </div>
       </header>
 
-      <div className="px-6 py-3 bg-emerald-950/40 text-sm text-emerald-100/90 border-b border-emerald-900/40">
-        Demo path: discover TikTok/Instagram handles with search-engine <code className="text-emerald-300">site:</code>{" "}
+      <div className="px-6 py-3 bg-accent-soft text-sm text-foreground border-b border-border">
+        Demo path: discover TikTok/Instagram handles with search-engine <code className="text-accent-text">site:</code>{" "}
         queries, pull live Instagram stats via Graph Business Discovery, score a real TikTok profile with
         Scout Lens. Production swaps step 1 for a licensed data API; everything else stays. No fake accounts,
         proxies, or login bypass.
@@ -283,7 +285,7 @@ export default function ScoutApp() {
           {markets.length === 0 && (
             <p className="text-xs text-red-400">Pick at least one country.</p>
           )}
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted">
             Results are limited to the countries you select — a country search returns only creators from that country.
           </p>
           <label className="flex items-center gap-2 text-sm">
@@ -298,7 +300,7 @@ export default function ScoutApp() {
             <input type="checkbox" checked={webDiscover} onChange={(e) => setWebDiscover(e.target.checked)} />
             Find TikTok / Instagram via site: search
           </label>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted">
             {searchConfigured
               ? "Search API is set. Queries like site:tiktok.com “pelikone” return indexed public profiles."
               : "Add GOOGLE_CSE_KEY + GOOGLE_CSE_CX (or BRAVE_SEARCH_API_KEY) to .env.local for live handles. Or load Scout Lens on a profile."}
@@ -306,7 +308,7 @@ export default function ScoutApp() {
               ? " Instagram Graph Business Discovery is on."
               : " Optional: INSTAGRAM_GRAPH_TOKEN + INSTAGRAM_BUSINESS_ID for live IG follower/post stats."}
           </p>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted">
             Untick biggest names to keep the micro/mid shortlist. Search still finds them when the box is on.
             Load unpacked <code>extension/</code> in Opera (opera://extensions) and open a TikTok profile for the live score card.
           </p>
@@ -333,7 +335,7 @@ export default function ScoutApp() {
                 placeholder={serverHasKey ? "Server key is set — optional override" : "Paste key for live search"}
                 onChange={(e) => setYoutubeKey(e.target.value)}
               />
-              <span className="block mt-1 text-xs text-zinc-500">
+              <span className="block mt-1 text-xs text-muted">
                 {serverHasKey
                   ? "A key is already set on the server."
                   : "Google Cloud → enable YouTube Data API v3 → create an API key. Or add YOUTUBE_API_KEY to .env.local and restart npm run dev."}
@@ -344,7 +346,7 @@ export default function ScoutApp() {
             type="button"
             onClick={run}
             disabled={loading || markets.length === 0 || nicheIds.length === 0}
-            className="w-full rounded-lg bg-emerald-500 text-black font-medium py-2.5 disabled:opacity-50"
+            className="w-full btn-primary font-medium py-2.5"
           >
             {loading ? "Searching…" : "Run discovery"}
           </button>
@@ -353,8 +355,8 @@ export default function ScoutApp() {
 
         <section className="space-y-5">
           {!result && (
-            <div className="rounded-xl border border-zinc-800 p-8 text-zinc-400">
-              <p className="text-lg text-zinc-200">Pick a niche and a country. Local terms. Ranked, explained, outreach-ready.</p>
+            <div className="card p-8 text-muted">
+              <p className="text-lg text-foreground">Pick a niche and a country. Local terms. Ranked, explained, outreach-ready.</p>
               <p className="mt-2 text-sm">
                 Try a niche and a country from the dropdowns — local terms still run per market.
               </p>
@@ -371,19 +373,19 @@ export default function ScoutApp() {
                 <Stat label="API units" value={String(result.apiUnitsUsed)} />
                 <Stat label="Mode" value={result.mode} />
               </div>
-              <p className="text-xs text-zinc-500">*4 minutes per creator vs manual scrolling.</p>
+              <p className="text-xs text-muted">*4 minutes per creator vs manual scrolling.</p>
               {result.notes.map((n) => (
-                <p key={n} className="text-xs text-amber-200/80">
+                <p key={n} className="text-xs text-amber-500">
                   {n}
                 </p>
               ))}
-              <div className="rounded-lg border border-zinc-800 p-3 text-sm">
-                <p className="text-zinc-400 mb-2">Local search terms</p>
+              <div className="card-sm p-3 text-sm">
+                <p className="text-muted mb-2">Local search terms</p>
                 <ul className="space-y-1">
                   {result.termsPerMarket.map((t) => (
                     <li key={t.country}>
-                      <span className="text-emerald-400">{t.country}</span>{" "}
-                      <span className="text-zinc-500">({t.source})</span> — {t.terms.join(", ")}
+                      <span className="text-accent-text">{t.country}</span>{" "}
+                      <span className="text-muted">({t.source})</span> — {t.terms.join(", ")}
                     </li>
                   ))}
                 </ul>
@@ -411,32 +413,32 @@ export default function ScoutApp() {
                 <button type="button" className="text-sm underline" onClick={() => copySheets(shortlist.length ? shortlist : visible)}>
                   {copied ? "Copied for Sheets" : "Copy for Google Sheets"}
                 </button>
-                <span className="text-sm text-zinc-500">Shortlist {shortlist.length}</span>
+                <span className="text-sm text-muted">Shortlist {shortlist.length}</span>
               </div>
               <div className="space-y-3">
                 {visible.map((c) => {
                   const channel = channelUrl(c);
                   const content = latestContentUrl(c);
                   return (
-                  <article key={c.id} className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                  <article key={c.id} className="card p-4">
                     <div className="flex flex-wrap justify-between gap-3">
                       <div>
                         <h2 className="font-medium text-lg">
                           {channel ? (
-                            <a href={channel} target="_blank" rel="noreferrer" className="hover:text-emerald-400">
+                            <a href={channel} target="_blank" rel="noreferrer" className="hover:text-accent-text">
                               {c.displayName}
                             </a>
                           ) : (
                             c.displayName
                           )}{" "}
-                          <span className="text-emerald-400 text-sm">{c.fit} fit</span>
+                          <span className="text-accent-text text-sm">{c.fit} fit</span>
                           {c.hiddenGem && (
-                            <span className="ml-2 text-xs bg-emerald-500 text-black px-2 py-0.5 rounded-full">
+                            <span className="ml-2 text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">
                               Hidden gem
                             </span>
                           )}
                         </h2>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-muted">
                           {c.searchedMarket} · {c.tier} ·{" "}
                           {c.followers > 0 ? c.followers.toLocaleString() : "followers via Lens / IG Graph"} · ER{" "}
                           {(c.engagementRate * 100).toFixed(2)}% · {c.scoringMode} · {c.dataSource} · {c.dataDate}
@@ -448,7 +450,7 @@ export default function ScoutApp() {
                             href={channel}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-xs border border-zinc-600 rounded px-2 py-1 hover:border-emerald-500"
+                            className="text-xs border border-border rounded px-2 py-1 hover:border-accent"
                           >
                             Channel
                           </a>
@@ -458,21 +460,21 @@ export default function ScoutApp() {
                             href={content}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-xs rounded px-2 py-1 bg-emerald-600 text-black font-medium"
+                            className="text-xs rounded px-2 py-1 bg-accent text-accent-foreground font-medium"
                           >
                             Content
                           </a>
                         )}
                         <button
                           type="button"
-                          className="text-xs border border-zinc-600 rounded px-2"
+                          className="text-xs border border-border rounded px-2"
                           onClick={() => addToShortlist(c)}
                         >
                           Shortlist
                         </button>
                         <button
                           type="button"
-                          className="text-xs border border-zinc-600 rounded px-2"
+                          className="text-xs border border-border rounded px-2"
                           onClick={() => setOpenId(openId === c.id ? null : c.id)}
                         >
                           {openId === c.id ? "Hide" : "Why"}
@@ -486,18 +488,18 @@ export default function ScoutApp() {
                           href={a.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300"
+                          className="text-[11px] px-2 py-0.5 rounded-full bg-surface-2 text-muted"
                         >
                           {a.platform} · {a.source}
                         </a>
                       ))}
                     </div>
                     {c.recentContent.length > 0 && (
-                      <ul className="mt-2 space-y-1 text-xs text-zinc-400">
+                      <ul className="mt-2 space-y-1 text-xs text-muted">
                         {c.recentContent.slice(0, 3).map((p) => (
                           <li key={p.postId}>
                             {p.url ? (
-                              <a href={p.url} target="_blank" rel="noreferrer" className="text-emerald-300 hover:underline">
+                              <a href={p.url} target="_blank" rel="noreferrer" className="text-accent-text hover:underline">
                                 {p.titleOrCaption}
                               </a>
                             ) : (
@@ -512,15 +514,15 @@ export default function ScoutApp() {
                       <p className="mt-2 text-xs text-red-300">{c.flags.join(" · ")}</p>
                     )}
                     {openId === c.id && (
-                      <div className="mt-3 text-sm space-y-2 text-zinc-300">
+                      <div className="mt-3 text-sm space-y-2 text-muted">
                         <p>{c.reasons.join(" ")}</p>
                         {c.llmReasons.length > 0 && (
-                          <p className="text-emerald-200/80">LLM: {c.llmReasons.join(" ")}</p>
+                          <p className="text-accent-text">LLM: {c.llmReasons.join(" ")}</p>
                         )}
                         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
                           {Object.entries(c.components).map(([k, v]) => (
-                            <div key={k} className="bg-zinc-900 rounded p-2">
-                              <div className="text-zinc-500">{k}</div>
+                            <div key={k} className="bg-surface-2 rounded p-2">
+                              <div className="text-muted">{k}</div>
                               <div>{v}</div>
                             </div>
                           ))}
@@ -528,7 +530,7 @@ export default function ScoutApp() {
                         <p className="text-xs">
                           Deal: {c.suggestedDeal} · {c.contactRoute}
                         </p>
-                        <pre className="whitespace-pre-wrap text-xs bg-zinc-900 p-3 rounded-lg">{c.messageDraft}</pre>
+                        <pre className="whitespace-pre-wrap text-xs bg-surface-2 p-3 rounded-lg">{c.messageDraft}</pre>
                       </div>
                     )}
                   </article>
@@ -546,9 +548,9 @@ export default function ScoutApp() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-zinc-800 px-3 py-2 min-w-[100px]">
-      <div className="text-[10px] uppercase tracking-wide text-zinc-500">{label}</div>
-      <div className="text-lg">{value}</div>
+    <div className="card-sm px-3.5 py-2.5 min-w-[104px]">
+      <div className="text-lg font-semibold">{value}</div>
+      <div className="text-[10px] uppercase tracking-wide text-muted">{label}</div>
     </div>
   );
 }

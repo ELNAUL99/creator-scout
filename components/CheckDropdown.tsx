@@ -78,17 +78,17 @@ export default function CheckDropdown({
         aria-expanded={open}
         aria-haspopup="listbox"
         onClick={() => setOpen((o) => !o)}
-        className="mt-1 w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-sm text-left flex items-center justify-between gap-2"
+        className="mt-1 w-full bg-surface-2 border border-border rounded-lg p-2 text-sm text-left flex items-center justify-between gap-2"
       >
-        <span className={selected.length ? "text-zinc-100 truncate" : "text-zinc-500"}>{summary}</span>
-        <span className="text-zinc-500">{open ? "▴" : "▾"}</span>
+        <span className={selected.length ? "text-foreground truncate" : "text-muted"}>{summary}</span>
+        <span className="text-muted">{open ? "▴" : "▾"}</span>
       </button>
       {open && (
-        <div className="mt-1 max-h-64 overflow-auto rounded-lg border border-zinc-700 bg-zinc-900 p-2 shadow-lg">
+        <div className="mt-1 max-h-64 overflow-auto rounded-lg border border-border bg-surface-2 p-2 shadow-lg">
           {searchable && (
             <input
               autoFocus
-              className="mb-2 w-full rounded bg-zinc-800 border border-zinc-700 px-2 py-1 text-sm"
+              className="mb-2 w-full rounded bg-surface-2 border border-border px-2 py-1 text-sm"
               placeholder="Search…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -97,7 +97,7 @@ export default function CheckDropdown({
           <div className="flex justify-end mb-1">
             <button
               type="button"
-              className="text-[11px] text-zinc-400 underline"
+              className="text-[11px] text-muted underline"
               onClick={() => onChange([])}
             >
               Clear all
@@ -106,7 +106,7 @@ export default function CheckDropdown({
           {visible.map((g) => (
             <div key={g.label} className="mb-2">
               {groupToggle ? (
-                <label className="flex items-center gap-2 px-1 py-1 text-[11px] uppercase tracking-wide text-zinc-500">
+                <label className="flex items-center gap-2 px-1 py-1 text-[11px] uppercase tracking-wide text-muted">
                   <input
                     type="checkbox"
                     checked={g.items.length > 0 && g.items.every((i) => selected.includes(i.value))}
@@ -115,17 +115,17 @@ export default function CheckDropdown({
                   {g.label}
                 </label>
               ) : (
-                <p className="px-1 py-1 text-[11px] uppercase tracking-wide text-zinc-500">{g.label}</p>
+                <p className="px-1 py-1 text-[11px] uppercase tracking-wide text-muted">{g.label}</p>
               )}
               {g.items.map((item) => (
-                <label key={item.value} className="flex items-center gap-2 rounded px-2 py-1 hover:bg-zinc-800">
+                <label key={item.value} className="flex items-center gap-2 rounded px-2 py-1 hover:bg-surface-2">
                   <input type="checkbox" checked={selected.includes(item.value)} onChange={() => toggle(item.value)} />
                   {item.label}
                 </label>
               ))}
             </div>
           ))}
-          {visible.length === 0 && <p className="text-xs text-zinc-500 px-2 py-1">No matches</p>}
+          {visible.length === 0 && <p className="text-xs text-muted px-2 py-1">No matches</p>}
         </div>
       )}
     </div>

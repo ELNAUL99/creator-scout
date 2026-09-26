@@ -34,15 +34,15 @@ export default function LensPage() {
 
   return (
     <div className="min-h-full flex flex-col">
-      <header className="border-b border-emerald-900/40 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-        <a href="/" className="text-sm text-emerald-400">
+      <header className="border-b border-border px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+        <a href="/" className="text-sm text-accent-text">
           ← Creator Scout
         </a>
         <LegalNav />
       </header>
       <div className="flex-1 max-w-2xl mx-auto px-6 py-10 space-y-4 w-full">
       <h1 className="text-2xl font-semibold">Scout Lens</h1>
-      <p className="text-sm text-zinc-400">
+      <p className="text-sm text-muted">
         Open a TikTok or Instagram profile in your own logged-in browser. Scout Lens reads what is
         already on screen and scores it with the same logic as discovery. One profile at a time, human
         pace — not bulk scraping, no login or captcha bypass.
@@ -51,14 +51,14 @@ export default function LensPage() {
         Load unpacked from <code>extension/</code> in Opera GX (or any Chromium browser: opera://extensions → Developer mode). This page is the clickable
         mock if judges can&apos;t install the extension.
       </p>
-      <textarea className="w-full bg-zinc-900 border border-zinc-700 rounded p-3 text-sm" value={bio} onChange={(e) => setBio(e.target.value)} />
-      <textarea className="w-full bg-zinc-900 border border-zinc-700 rounded p-3 text-sm min-h-[80px]" value={captions} onChange={(e) => setCaptions(e.target.value)} />
-      <input className="w-full bg-zinc-900 border border-zinc-700 rounded p-3 text-sm" value={followers} onChange={(e) => setFollowers(e.target.value)} />
-      <button type="button" onClick={score} className="bg-emerald-500 text-black rounded-lg px-4 py-2">
+      <textarea className="w-full bg-surface-2 border border-border rounded p-3 text-sm" value={bio} onChange={(e) => setBio(e.target.value)} />
+      <textarea className="w-full bg-surface-2 border border-border rounded p-3 text-sm min-h-[80px]" value={captions} onChange={(e) => setCaptions(e.target.value)} />
+      <input className="w-full bg-surface-2 border border-border rounded p-3 text-sm" value={followers} onChange={(e) => setFollowers(e.target.value)} />
+      <button type="button" onClick={score} className="bg-accent text-accent-foreground rounded-lg px-4 py-2">
         {loading ? "Scoring…" : "Score this profile"}
       </button>
       {result && (
-        <pre className="text-xs bg-zinc-950 border border-zinc-800 rounded-lg p-4 overflow-auto">
+        <pre className="text-xs bg-surface border border-border rounded-lg p-4 overflow-auto">
           {JSON.stringify(result, null, 2)}
         </pre>
       )}
