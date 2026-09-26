@@ -7,6 +7,7 @@ import { belongsToMarket } from "@/lib/localeMatch";
 import { DEFAULT_MARKETS, MARKET_REGIONS, MARKETS } from "@/lib/markets";
 import { NICHE_OPTIONS, NICHE_TERMS, type NicheId } from "@/lib/niches";
 import type { DiscoverResponse, ScoredCreator } from "@/lib/types";
+import { createSupabaseBrowserClient } from "@/lib/supabaseBrowser";
 
 const SELECT_CLASS = "mt-1 w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-sm";
 
@@ -231,7 +232,18 @@ export default function ScoutApp() {
           <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-400">Prenew hackathon</p>
           <h1 className="text-xl font-semibold tracking-tight">Creator Scout</h1>
         </div>
-        <LegalNav />
+        <div className="flex items-center gap-3">
+          <LegalNav />
+          <button
+            onClick={async () => {
+              await createSupabaseBrowserClient().auth.signOut();
+              window.location.href = "/login";
+            }}
+            className="text-sm text-zinc-400 hover:text-emerald-400"
+          >
+            Sign out
+          </button>
+        </div>
       </header>
 
       <div className="px-6 py-3 bg-emerald-950/40 text-sm text-emerald-100/90 border-b border-emerald-900/40">

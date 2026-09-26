@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { appBaseUrl, readOauthCookie } from "@/lib/oauth";
 import { upsertOptIn } from "@/lib/optInStore";
+import { getCurrentWorkspaceId } from "@/lib/auth";
 
 export async function GET(req: Request) {
   const base = appBaseUrl(req);
@@ -48,13 +49,17 @@ export async function GET(req: Request) {
   };
   const user = body.data?.user;
   const handle = user?.username || user?.open_id || "tiktok";
-  await upsertOptIn({
-    platform: "tiktok",
-    handle,
-    displayName: user?.display_name || handle,
-    followers: user?.follower_count ?? null,
-    bio: user?.bio_description ?? "",
-    via: "oauth",
-  });
+  const workspaceId = await getCurrentWorkspaceId();
+  await upsertOptIn(
+    {
+      platform: "tiktok",
+      handle,
+      displayName: user?.display_name || handle,
+      followers: user?.follower_count ?? null,
+      bio: user?.bio_description ?? "",
+      via: "oauth",
+    },
+    workspaceId,
+  );
   return NextResponse.redirect(`${base}/opt-in?connected=tiktok`);
 }

@@ -16,6 +16,7 @@ export type OptInRecord = {
 
 // Row shape in the Supabase `opt_ins` table (snake_case columns).
 type OptInRow = {
+  workspace_id: string;
   id: string;
   platform: OptInRecord["platform"];
   handle: string;
@@ -67,12 +68,13 @@ async function fileWriteAll(rows: OptInRecord[]) {
   }
 }
 
-export async function listOptIns(): Promise<OptInRecord[]> {
+export async function listOptIns(workspaceId: string | null): Promise<OptInRecord[]> {
   const db = getSupabaseAdmin();
-  if (db) {
+  if (db && workspaceId) {
     const { data, error } = await db
       .from("opt_ins")
       .select("*")
+      .eq("workspace_id", workspaceId)
       .order("consented_at", { ascending: false });
     if (error) {
       console.error("optInStore: Supabase list failed", error);
@@ -85,6 +87,7 @@ export async function listOptIns(): Promise<OptInRecord[]> {
 
 export async function upsertOptIn(
   row: Omit<OptInRecord, "id" | "consentedAt"> & { id?: string },
+  workspaceId: string | null,
 ): Promise<OptInRecord> {
   const handle = row.handle.replace(/^@/, "").toLowerCase();
   const id = row.id ?? `${row.platform}:${handle}`;
@@ -100,9 +103,10 @@ export async function upsertOptIn(
   };
 
   const db = getSupabaseAdmin();
-  if (db) {
+  if (db && workspaceId) {
     const { error } = await db.from("opt_ins").upsert(
       {
+        workspace_id: workspaceId,
         id: next.id,
         platform: next.platform,
         handle: next.handle,
@@ -112,13 +116,13 @@ export async function upsertOptIn(
         consented_at: next.consentedAt,
         via: next.via,
       } satisfies OptInRow,
-      { onConflict: "id" },
+      { onConflict: "workspace_id,id" },
     );
     if (error) console.error("optInStore: Supabase upsert failed", error);
     return next;
   }
 
-  // File fallback
+  // File fallback (local dev without Supabase)
   const rows = await fileReadAll();
   const rest = rows.filter((r) => r.id !== id);
   rest.unshift(next);

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { appBaseUrl, readOauthCookie } from "@/lib/oauth";
 import { upsertOptIn } from "@/lib/optInStore";
+import { getCurrentWorkspaceId } from "@/lib/auth";
 
 export async function GET(req: Request) {
   const base = appBaseUrl(req);
@@ -41,13 +42,17 @@ export async function GET(req: Request) {
   );
   const user = (await me.json()) as { id?: string; username?: string; name?: string };
   const handle = user.username || String(token.user_id || "instagram");
-  await upsertOptIn({
-    platform: "instagram",
-    handle,
-    displayName: user.name || handle,
-    followers: null,
-    bio: "",
-    via: "oauth",
-  });
+  const workspaceId = await getCurrentWorkspaceId();
+  await upsertOptIn(
+    {
+      platform: "instagram",
+      handle,
+      displayName: user.name || handle,
+      followers: null,
+      bio: "",
+      via: "oauth",
+    },
+    workspaceId,
+  );
   return NextResponse.redirect(`${base}/opt-in?connected=instagram`);
 }
