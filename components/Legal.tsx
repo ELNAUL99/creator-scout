@@ -34,7 +34,7 @@ export function LegalNav() {
         Scout Lens
       </a>
       <a className="hover:text-white" href="/opt-in">
-        Creator opt-in
+        Connect TikTok / Instagram
       </a>
       <a className="hover:text-white" href="/terms">
         Terms

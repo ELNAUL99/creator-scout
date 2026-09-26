@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { loadActiveBrand } from "@/lib/brandStore";
+import { mergeBrand } from "@/lib/brand";
+import { loadActiveBrand, saveActiveBrand } from "@/lib/brandStore";
 import { saveLensCapture } from "@/lib/lensStore";
 import { scoreVisibleProfile } from "@/lib/scoreProfile";
 import type { BrandProfile, Platform } from "@/lib/types";
@@ -39,7 +40,9 @@ export async function POST(req: Request) {
       ? body.platform
       : "instagram";
   const handle = (body.handle ?? body.name ?? "creator").replace(/^@/, "");
-  const brand = body.brand ?? (await loadActiveBrand()) ?? undefined;
+  const brandPartial = body.brand ?? (await loadActiveBrand()) ?? undefined;
+  const brand = mergeBrand(brandPartial);
+  if (body.brand) await saveActiveBrand(brand);
   const creator = scoreVisibleProfile({
     name: body.name ?? handle,
     platform,
@@ -51,7 +54,7 @@ export async function POST(req: Request) {
     views: body.views ?? 1,
     country: body.country ?? null,
     market: body.market ?? "FI",
-    briefTerms: body.briefTerms?.length ? body.briefTerms : (brand?.goodFitWords?.slice(0, 8) ?? ["budget", "gaming", "pc", "refurbished"]),
+    briefTerms: body.briefTerms?.length ? body.briefTerms : brand.goodFitWords.slice(0, 8),
     source: "extension",
     url: body.url ?? "",
     handle: platform === "tiktok" ? `@${handle}` : handle,
@@ -84,7 +87,7 @@ export async function POST(req: Request) {
       followers: creator.followers,
       tier: creator.tier,
       source: "extension",
-      coverage: "Scout Lens reads the visible profile in your browser. One at a time, your session. It does not crawl.",
+      coverage: `Scout Lens scored this profile for ${brand.name}. One at a time, your session. It does not crawl.`,
     },
     { headers: CORS },
   );

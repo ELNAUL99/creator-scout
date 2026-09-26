@@ -19,22 +19,11 @@ type Saved = {
 
 function OptInInner() {
   const params = useSearchParams();
-  const intent = (params.get("intent") === "instagram" ? "instagram" : "tiktok") as "tiktok" | "instagram";
   const reason = params.get("reason");
   const connected = params.get("connected");
-  const [platform, setPlatform] = useState<"tiktok" | "instagram">(intent);
-  const [handle, setHandle] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [consent, setConsent] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<Saved[]>([]);
   const [tiktokOAuth, setTiktokOAuth] = useState(false);
   const [igOAuth, setIgOAuth] = useState(false);
-
-  useEffect(() => {
-    setPlatform(intent);
-  }, [intent]);
 
   useEffect(() => {
     fetch("/api/opt-in")
@@ -55,39 +44,18 @@ function OptInInner() {
     connected === "instagram" || saved.some((s) => s.platform === "instagram" && s.via === "oauth");
 
   const banner = useMemo(() => {
-    if (connected) return `${connected === "tiktok" ? "TikTok" : "Instagram"} connected. That login only returns YOUR profile (username, bio, followers). It is not permission to crawl other accounts. Reconnect if this row looks empty.`;
+    if (connected) {
+      return `${connected === "tiktok" ? "TikTok" : "Instagram"} connected. That login only returns YOUR profile. It is not permission to crawl other accounts.`;
+    }
     if (reason === "no_app") {
-      return "Official login needs a TikTok Login Kit / Meta Instagram app. Share your public username below so we can store a consented opt-in without scraping.";
+      return "Official login needs TikTok Login Kit / Meta Instagram app credentials in env.";
     }
     if (reason === "oauth_state" || reason === "token") {
-      return "Login was cancelled or the app credentials/redirect URI do not match. You can still opt in with your public username.";
+      return "Login was cancelled or the app credentials/redirect URI do not match. Try Connect again.";
     }
-    if (reason) return `Login did not finish (${reason}). You can still opt in with your public username.`;
+    if (reason) return `Login did not finish (${reason}). Try Connect again.`;
     return null;
   }, [connected, reason]);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/opt-in", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ platform, handle, displayName, consent }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not save");
-      setSaved((s) => [data.creator, ...s.filter((x) => x.id !== data.creator.id)]);
-      setHandle("");
-      setDisplayName("");
-      setConsent(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save");
-    } finally {
-      setSaving(false);
-    }
-  }
 
   return (
     <div className="min-h-full flex flex-col">
@@ -99,126 +67,66 @@ function OptInInner() {
         </div>
       </header>
       <div className="flex-1 max-w-xl mx-auto px-6 py-16 space-y-4 w-full">
-      <h1 className="text-2xl font-semibold">Work with Prenew</h1>
-      <p className="text-muted text-sm">
-        Connect TikTok or Instagram with official login. That only loads the account you sign in with (for a creator
-        opt-in). It cannot search TikTok/Instagram or pull other people’s profiles. Discovery of other creators uses
-        YouTube’s API, Instagram Business Discovery for public usernames, Scout Lens, or indexed site: search — never a
-        crawl.
-      </p>
-      {banner && <p className="text-sm text-amber-500">{banner}</p>}
-      <div className="card p-6 space-y-3">
-        {tiktokConnected ? (
-          <div
-            aria-disabled="true"
-            className="block w-full text-center rounded-lg py-2.5 bg-accent-soft text-accent-text font-medium cursor-not-allowed select-none"
-          >
-            TikTok connected ✓
-          </div>
-        ) : (
-          <a
-            href="/api/connect/tiktok"
-            className="block w-full text-center rounded-lg py-2.5 bg-accent text-accent-foreground font-medium"
-          >
-            Connect TikTok
-          </a>
-        )}
-        {instagramConnected ? (
-          <div
-            aria-disabled="true"
-            className="block w-full text-center rounded-lg py-2.5 border border-border bg-accent-soft text-accent-text cursor-not-allowed select-none"
-          >
-            Instagram connected ✓
-          </div>
-        ) : (
-          <a
-            href="/api/connect/instagram"
-            className="block w-full text-center rounded-lg py-2.5 border border-border-strong hover:border-accent"
-          >
-            Connect Instagram
-          </a>
-        )}
-        <p className="text-xs text-muted">
-          {tiktokOAuth
-            ? "TikTok Login Kit is configured — Connect TikTok opens TikTok’s official login."
-            : "TikTok app not set (TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET). Connect TikTok still works: you’ll land on the public-handle form."}{" "}
-          {igOAuth
-            ? "Instagram Login is configured."
-            : "Instagram app not set (INSTAGRAM_APP_ID / INSTAGRAM_APP_SECRET). Connect Instagram uses the same form."}
+        <h1 className="text-2xl font-semibold">Connect your account</h1>
+        <p className="text-muted text-sm">
+          Connect TikTok or Instagram with official login. That only loads the account you sign in with. It cannot
+          search those networks or pull other people’s profiles.
         </p>
-        <form onSubmit={submit} className="space-y-3 pt-2 border-t border-border">
-          <p className="text-sm text-muted">Public username (consented opt-in)</p>
-          <div className="flex gap-2 text-sm">
-            <label className="flex gap-1 items-center">
-              <input type="radio" name="platform" checked={platform === "tiktok"} onChange={() => setPlatform("tiktok")} />
-              TikTok
-            </label>
-            <label className="flex gap-1 items-center">
-              <input
-                type="radio"
-                name="platform"
-                checked={platform === "instagram"}
-                onChange={() => setPlatform("instagram")}
-              />
-              Instagram
-            </label>
-          </div>
-          <input
-            className="w-full bg-surface-2 border border-border rounded-lg p-2 text-sm"
-            placeholder={platform === "tiktok" ? "@handle" : "username"}
-            value={handle}
-            onChange={(e) => setHandle(e.target.value)}
-            required
-          />
-          <input
-            className="w-full bg-surface-2 border border-border rounded-lg p-2 text-sm"
-            placeholder="Display name (optional)"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-          />
-          <label className="flex gap-2 text-xs text-muted">
-            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-            <span>
-              I opt in to share this public profile with Prenew Creator Scout, agree to the{" "}
-              <a className="text-accent-text" href="/terms">
-                Terms
-              </a>{" "}
-              and{" "}
-              <a className="text-accent-text" href="/privacy">
-                Privacy Policy
-              </a>
-              , and can ask for deletion anytime.
-            </span>
-          </label>
-          <button
-            type="submit"
-            disabled={saving || !consent}
-            className="w-full rounded-lg bg-accent text-accent-foreground py-2 text-sm disabled:opacity-40"
-          >
-            {saving ? "Saving…" : "Save opt-in"}
-          </button>
-          {error && <p className="text-sm text-red-400">{error}</p>}
-        </form>
-        <p className="text-xs text-muted">
-          We never collect private phone numbers or home addresses. You can ask us to delete your record
-          anytime.
-        </p>
-      </div>
-      {saved.length > 0 && (
-        <ul className="space-y-2 text-sm">
-          {saved.map((c) => (
-            <li key={c.id} className="border border-border rounded-lg px-3 py-2 space-y-1">
-              <div>
-                {c.displayName} · {c.platform}{" "}
-                <span className="text-accent-text">{c.handle}</span>
-                {c.followers != null ? ` · ${c.followers.toLocaleString()} followers` : ""}
-                <span className="text-muted"> · {c.via}</span>
-              </div>
-              {c.bio ? <p className="text-xs text-muted">{c.bio}</p> : null}
-            </li>
-          ))}
-        </ul>
-      )}
+        {banner && <p className="text-sm text-amber-500">{banner}</p>}
+        <div className="card p-6 space-y-3">
+          {tiktokConnected ? (
+            <div
+              aria-disabled="true"
+              className="block w-full text-center rounded-lg py-2.5 bg-accent-soft text-accent-text font-medium cursor-not-allowed select-none"
+            >
+              TikTok connected ✓
+            </div>
+          ) : (
+            <a
+              href="/api/connect/tiktok"
+              className="block w-full text-center rounded-lg py-2.5 bg-accent text-accent-foreground font-medium"
+            >
+              Connect TikTok
+            </a>
+          )}
+          {instagramConnected ? (
+            <div
+              aria-disabled="true"
+              className="block w-full text-center rounded-lg py-2.5 border border-border bg-accent-soft text-accent-text cursor-not-allowed select-none"
+            >
+              Instagram connected ✓
+            </div>
+          ) : (
+            <a
+              href="/api/connect/instagram"
+              className="block w-full text-center rounded-lg py-2.5 border border-border-strong hover:border-accent"
+            >
+              Connect Instagram
+            </a>
+          )}
+          <p className="text-xs text-muted">
+            {tiktokOAuth
+              ? "TikTok Login Kit is configured — Connect opens TikTok’s official login."
+              : "TikTok app not set (TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET)."}{" "}
+            {igOAuth
+              ? "Instagram Login is configured."
+              : "Instagram app not set (INSTAGRAM_APP_ID / INSTAGRAM_APP_SECRET)."}
+          </p>
+        </div>
+        {saved.length > 0 && (
+          <ul className="space-y-2 text-sm">
+            {saved.filter((c) => c.via === "oauth").map((c) => (
+              <li key={c.id} className="border border-border rounded-lg px-3 py-2 space-y-1">
+                <div>
+                  {c.displayName} · {c.platform}{" "}
+                  <span className="text-accent-text">{c.handle}</span>
+                  {c.followers != null ? ` · ${c.followers.toLocaleString()} followers` : ""}
+                </div>
+                {c.bio ? <p className="text-xs text-muted">{c.bio}</p> : null}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
       <SiteFooter />
     </div>

@@ -1,5 +1,4 @@
-import { isPrenewBrand, mergeBrand } from "./brand";
-import { saveActiveBrand } from "./brandStore";
+import { mergeBrand } from "./brand";
 import { extractHandles } from "./handles";
 import { llmAvailable, llmFit, llmTranslate } from "./llm";
 import { matchesSelectedCountries } from "./localeMatch";
@@ -232,28 +231,23 @@ async function attachLiveSources(req: DiscoverRequest, result: DiscoverResponse)
 }
 
 export async function runDiscover(req: DiscoverRequest): Promise<DiscoverResponse> {
-  const brand = mergeBrand(req.brand);
-  await saveActiveBrand(brand);
-  const reqForRun =
-    isPrenewBrand(brand) ? req : { ...req, includePrenewCollabs: false };
-
-  const mode = reqForRun.mode ?? "auto";
-  const key = youtubeKey(reqForRun.youtubeApiKey);
-  const wantYt = (reqForRun.platforms ?? ["youtube"]).includes("youtube");
+  const mode = req.mode ?? "auto";
+  const key = youtubeKey(req.youtubeApiKey);
+  const wantYt = (req.platforms ?? ["youtube"]).includes("youtube");
 
   if (mode === "sample") {
-    return attachLiveSources(reqForRun, sampleDiscover(reqForRun.brief, reqForRun.markets, reqForRun.nicheIds, reqForRun.brand));
+    return attachLiveSources(req, sampleDiscover(req.brief, req.markets, req.nicheIds, req.brand));
   }
 
   if (wantYt && key) {
     try {
-      return await attachLiveSources(reqForRun, await runLiveDiscover(reqForRun, key));
+      return await attachLiveSources(req, await runLiveDiscover(req, key));
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       if (/blocked search\.list|V3DataSearchService\.List are blocked/i.test(message)) {
         const blocked = await attachLiveSources(
-          reqForRun,
-          emptyLive(reqForRun, [
+          req,
+          emptyLive(req, [
             "YouTube search.list is blocked on this API key — live YouTube discovery cannot run until Google Cloud allows it.",
             "Enable YouTube Data API v3, API restrictions = YouTube Data API v3 (or unrestricted), Application restrictions = None (or IP) for this server.",
             "Not substituting the collab sheet or sample channels. Connected TikTok/Instagram, Lens, and site: search still run.",
@@ -273,7 +267,7 @@ export async function runDiscover(req: DiscoverRequest): Promise<DiscoverRespons
     );
   }
   if (!wantYt) notes.push("YouTube is unchecked, so YouTube Data API was not queried.");
-  const result = await attachLiveSources(reqForRun, emptyLive(reqForRun, notes));
+  const result = await attachLiveSources(req, emptyLive(req, notes));
   if (wantYt && !key) {
     result.error = notes[0];
   }
@@ -289,13 +283,9 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
   const allCreators: ScoredCreator[] = [];
   const seen = new Set<string>();
 
-  if (isPrenewBrand(brand)) {
-    notes.push(
-      "Fit is scored for Prenew (refurbished gaming PCs) unless you enter another brand’s name, business, and references.",
-    );
-  } else {
-    notes.push(`Fit is scored for ${brand.name} from the brand name, business, and references you entered — not Prenew.`);
-  }
+  notes.push(
+    "Search uses your niche plus a short brief. Full brand name / business / references are scored on Scout Lens, not this list.",
+  );
 
   if (req.markets.length) {
     notes.push(

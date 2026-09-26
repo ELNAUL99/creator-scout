@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LegalNav, SiteFooter } from "@/components/Legal";
 import { BrandHomeLink } from "@/components/BrandHomeLink";
+import { parseBrandList } from "@/lib/brand";
 
 type ScoreResult = {
   name?: string;
@@ -22,14 +23,46 @@ export default function LensPage() {
   const [bio, setBio] = useState("Budget PC builds, used GPUs, student setups. tiktok.com/@setupkid");
   const [captions, setCaptions] = useState("Refurbished 4070 build under €700\nIs a used GPU worth it in 2026?");
   const [followers, setFollowers] = useState("22000");
+  const [brandName, setBrandName] = useState("");
+  const [brandBusiness, setBrandBusiness] = useState("");
+  const [brandRefs, setBrandRefs] = useState("");
+  const [brandRivals, setBrandRivals] = useState("");
   const [result, setResult] = useState<ScoreResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/lens-brand")
+      .then((r) => r.json())
+      .then((d: { brand?: { name?: string; pitch?: string; goodFitWords?: string[]; competitors?: string[] } }) => {
+        const b = d.brand;
+        if (!b || !b.name || b.name.toLowerCase() === "prenew") return;
+        setBrandName(b.name);
+        if (b.pitch) setBrandBusiness(b.pitch);
+        if (b.goodFitWords?.length) setBrandRefs(b.goodFitWords.join(", "));
+        if (b.competitors?.length) setBrandRivals(b.competitors.join(", "));
+      })
+      .catch(() => {});
+  }, []);
+
+  function brandPayload() {
+    return {
+      name: brandName.trim() || undefined,
+      pitch: brandBusiness.trim() || undefined,
+      goodFitWords: parseBrandList(brandRefs),
+      competitors: parseBrandList(brandRivals),
+    };
+  }
 
   async function score() {
     setLoading(true);
     setError(null);
     try {
+      await fetch("/api/lens-brand", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(brandPayload()),
+      });
       const res = await fetch("/api/score-profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -44,6 +77,7 @@ export default function LensPage() {
           views: 12000,
           country: "FI",
           market: "FI",
+          brand: brandPayload(),
         }),
       });
       const data = (await res.json()) as ScoreResult;
@@ -66,16 +100,59 @@ export default function LensPage() {
         <div>
           <h1 className="text-2xl font-semibold">Scout Lens</h1>
           <p className="mt-2 text-sm text-muted">
-            The real Scout Lens is a browser extension. You open one TikTok or Instagram profile in
-            your own logged-in browser; it reads what is already on screen (name, bio, follower
-            count, captions on visible posts) and scores that creator with the same fit logic as
-            discovery. One profile at a time. It does not crawl, log in for you, or send messages.
+            Brand fit lives here. Enter the advertiser’s name, what they sell, and references. Then score one
+            TikTok or Instagram profile you already have open. Creator search only needs a short brief.
           </p>
           <p className="mt-2 text-xs text-muted">
             Opera GX: <code>opera://extensions</code> → Developer mode → Load unpacked →{" "}
-            <code>extension/</code> folder in this repo. Then open any{" "}
-            <code>tiktok.com/@…</code> profile. A score card appears on the page.
+            <code>extension/</code>. Save the brand below, then open a <code>tiktok.com/@…</code> profile.
           </p>
+        </div>
+
+        <div className="rounded-xl border border-border p-5 space-y-4">
+          <div>
+            <h2 className="text-sm font-medium">Brand to score against</h2>
+            <p className="text-xs text-muted mt-1">
+              Leave blank for the Prenew demo (refurbished gaming PCs). The extension uses the last brand you
+              save here.
+            </p>
+          </div>
+          <label className="block text-sm">
+            <span className="font-medium">Brand name</span>
+            <input
+              className="mt-1.5 w-full field p-2.5 text-sm"
+              value={brandName}
+              onChange={(e) => setBrandName(e.target.value)}
+              placeholder="Prenew, Glossier, …"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="font-medium">Business</span>
+            <textarea
+              className="mt-1.5 w-full field p-2.5 text-sm min-h-[72px]"
+              value={brandBusiness}
+              onChange={(e) => setBrandBusiness(e.target.value)}
+              placeholder="What you sell, who it’s for, the offer"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="font-medium">References</span>
+            <textarea
+              className="mt-1.5 w-full field p-2.5 text-sm min-h-[64px]"
+              value={brandRefs}
+              onChange={(e) => setBrandRefs(e.target.value)}
+              placeholder="Products, keywords, campaigns you want to look like"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="font-medium">Rival brands (optional)</span>
+            <input
+              className="mt-1.5 w-full field p-2.5 text-sm"
+              value={brandRivals}
+              onChange={(e) => setBrandRivals(e.target.value)}
+              placeholder="Flagged if the creator already promotes them"
+            />
+          </label>
         </div>
 
         <div className="rounded-xl border border-border p-5 space-y-4">
