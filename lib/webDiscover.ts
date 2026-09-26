@@ -21,7 +21,7 @@ export async function discoverViaSearchIndex(req: DiscoverRequest): Promise<{ cr
     return { creators, notes };
   }
 
-  const markets = req.markets.slice(0, 3);
+  const markets = req.markets;
   const sites = (
     [
       req.platforms.includes("tiktok") ? "tiktok.com" : null,

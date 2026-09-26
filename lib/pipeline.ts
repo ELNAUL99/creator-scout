@@ -4,7 +4,7 @@ import { llmAvailable, llmFit, llmTranslate } from "./llm";
 import { belongsToMarket } from "./localeMatch";
 import { getMarket } from "./markets";
 import { draftMessage, hoursSaved, ruleReasons } from "./messages";
-import { dictionaryTerms, isNicheId, looksLikePcHardware, nichesFromBrief, shouldExcludePcHardware } from "./niches";
+import { dictionaryTerms, isNicheId, looksLikePcHardware, nichesFromBrief, shouldExcludePcHardware, buildTermsPerMarket } from "./niches";
 import { sampleDiscover } from "./sample";
 import { scoreCreator, TIER_BENCHMARK } from "./scoring";
 import { connectedOptInCreators } from "./optInCreators";
@@ -39,16 +39,7 @@ function mergeCreators(base: ScoredCreator[], extra: ScoredCreator[]) {
 function termsForMarkets(req: DiscoverRequest): MarketTerms[] {
   const fromIds = [...(req.nicheIds ?? []), req.nicheId ?? ""].filter(isNicheId);
   const niches = fromIds.length ? fromIds : nichesFromBrief(req.brief);
-  return req.markets.map((code) => {
-    const market = getMarket(code);
-    return {
-      country: code,
-      language: market.language,
-      terms: dictionaryTerms(niches, market.language),
-      niche: niches[0],
-      source: "dictionary" as const,
-    };
-  });
+  return buildTermsPerMarket(niches);
 }
 
 function emptyLive(req: DiscoverRequest, notes: string[]): DiscoverResponse {
@@ -267,7 +258,6 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
   const brand = mergeBrand(req.brand);
   const fromIds = [...(req.nicheIds ?? []), req.nicheId ?? ""].filter(isNicheId);
   const niches = fromIds.length ? fromIds : nichesFromBrief(req.brief);
-  const termsPerMarket: MarketTerms[] = [];
   let units = 0;
   const notes: string[] = [];
   const allCreators: ScoredCreator[] = [];
@@ -276,21 +266,12 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
   for (const code of req.markets) {
     const market = getMarket(code);
     let terms = dictionaryTerms(niches, market.language);
-    let source: MarketTerms["source"] = "dictionary";
     if (llmAvailable() && fromIds.length === 0) {
       const translated = await llmTranslate(req.brief, market.name, market.languageName);
       if (translated?.terms.length) {
         terms = translated.terms;
-        source = "llm";
       }
     }
-    termsPerMarket.push({
-      country: code,
-      language: market.language,
-      terms,
-      niche: niches[0],
-      source,
-    });
 
     const q = terms[0] || req.brief.split(",")[0]?.trim() || "gameplay";
     let search = await searchRecentVideos({
@@ -420,7 +401,7 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
     brief: req.brief,
     createdAt: new Date().toISOString(),
     mode: "live",
-    termsPerMarket,
+    termsPerMarket: buildTermsPerMarket(niches),
     creators: allCreators,
     apiUnitsUsed: units,
     hoursSavedEstimate: hoursSaved(allCreators.length),

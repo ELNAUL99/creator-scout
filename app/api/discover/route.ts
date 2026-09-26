@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     const workspaceId = await getCurrentWorkspaceId();
     const result = await runDiscover({
       brief,
-      markets: body.markets.slice(0, 8),
+      markets: body.markets,
       nicheIds,
       nicheId: body.nicheId,
       sizeMin: body.sizeMin ?? 10_000,

@@ -659,13 +659,22 @@ export default function ScoutApp() {
                   {n}
                 </p>
               ))}
-              <div className="card-sm p-3 text-sm">
-                <p className="text-muted mb-2">Local search terms</p>
+              <div className="card-sm p-3 text-sm max-h-80 overflow-y-auto">
+                <p className="text-muted mb-1">Local search terms — all {result.termsPerMarket.length} countries</p>
+                {result.termsPerMarket[0]?.originalTerms?.length ? (
+                  <p className="text-xs mb-2">
+                    Original (English): {result.termsPerMarket[0].originalTerms.join(", ")}
+                  </p>
+                ) : null}
                 <ul className="space-y-1">
                   {result.termsPerMarket.map((t) => (
                     <li key={t.country}>
-                      <span className="text-accent-text">{t.country}</span>{" "}
-                      <span className="text-muted">({t.source})</span> — {t.terms.join(", ")}
+                      <span className="text-accent-text">{t.countryName ?? t.country}</span>{" "}
+                      <span className="text-muted">
+                        ({t.languageName ?? t.language}
+                        {t.region ? ` · ${t.region}` : ""})
+                      </span>{" "}
+                      — {t.terms.join(", ")}
                     </li>
                   ))}
                 </ul>

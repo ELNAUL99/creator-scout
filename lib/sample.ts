@@ -1,7 +1,7 @@
 import { mergeBrand } from "./brand";
 import { getMarket } from "./markets";
 import { draftMessage, hoursSaved, ruleReasons } from "./messages";
-import { dictionaryTerms, isNicheId, looksLikePcHardware, shouldExcludePcHardware, type NicheId } from "./niches";
+import { dictionaryTerms, isNicheId, looksLikePcHardware, shouldExcludePcHardware, buildTermsPerMarket, type NicheId } from "./niches";
 import { scoreCreator } from "./scoring";
 import type { CreatorAccount, DiscoverResponse, ScoredCreator } from "./types";
 
@@ -459,25 +459,7 @@ export function sampleDiscover(brief: string, markets: string[], nicheIds?: stri
   });
 
   creators.sort((a, b) => b.fit - a.fit);
-  const termsPerMarket = markets.map((code) => {
-    const m = getMarket(code);
-    const dict: Record<string, string[]> = {
-      FI: ["pelikone", "näytönohjain", "edullinen pelikone"],
-      SE: ["bygga dator", "begagnat grafikkort"],
-      DE: ["Gaming-PC", "Grafikkarte", "gebrauchte Grafikkarte"],
-      PL: ["składanie PC", "tani komputer do gier"],
-      EE: ["odav mänguarvuti", "kasutatud graafikakaart"],
-      BR: ["PC gamer barato", "GPU usada"],
-      VN: ["build PC", "PC gaming giá rẻ", "card đồ họa cũ"],
-    };
-    return {
-      country: code,
-      language: m.language,
-      terms: dict[code] ?? [brief],
-      niche: "PC building",
-      source: "dictionary" as const,
-    };
-  });
+  const termsPerMarket = buildTermsPerMarket(wanted.length ? wanted : ["pc-building", "budget-second-hand"]);
 
   return {
     runId: `sample-${Date.now()}`,

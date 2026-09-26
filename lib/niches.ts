@@ -1,3 +1,7 @@
+import { EXTRA_TERMS } from "./extraTerms";
+import { MARKETS, getMarket } from "./markets";
+import type { MarketTerms } from "./types";
+
 export const NICHE_IDS = [
   "gaming",
   "pc-building",
@@ -386,12 +390,33 @@ export function nichesFromBrief(brief: string): NicheId[] {
 }
 
 export function dictionaryTerms(niches: NicheId[], language: string): string[] {
-  const lang = language in NICHE_TERMS["pc-building"].terms ? language : "en";
   const terms: string[] = [];
   for (const id of niches) {
-    terms.push(...(NICHE_TERMS[id]?.terms[lang] ?? NICHE_TERMS[id]?.terms.en ?? []));
+    const pack = NICHE_TERMS[id]?.terms;
+    const local = EXTRA_TERMS[id]?.[language] ?? pack?.[language] ?? pack?.en ?? [];
+    terms.push(...local);
   }
   return [...new Set(terms)].slice(0, 6);
+}
+
+export function englishTerms(niches: NicheId[]): string[] {
+  return dictionaryTerms(niches, "en");
+}
+
+export function buildTermsPerMarket(niches: NicheId[], codes?: string[]): MarketTerms[] {
+  const originalTerms = englishTerms(niches);
+  const list = codes?.length ? codes.map((c) => getMarket(c)) : MARKETS;
+  return list.map((market) => ({
+    country: market.code,
+    countryName: market.name,
+    language: market.language,
+    languageName: market.languageName,
+    region: market.region,
+    terms: dictionaryTerms(niches, market.language),
+    originalTerms,
+    niche: niches[0],
+    source: "dictionary" as const,
+  }));
 }
 
 const HARDWARE_NICHES: NicheId[] = ["pc-building", "budget-second-hand", "tech-reviews", "diy-home"];

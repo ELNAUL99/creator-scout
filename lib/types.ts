@@ -95,8 +95,12 @@ export type DiscoverRequest = {
 
 export type MarketTerms = {
   country: string;
+  countryName?: string;
   language: string;
+  languageName?: string;
+  region?: string;
   terms: string[];
+  originalTerms?: string[];
   niche: string;
   source: "dictionary" | "llm";
 };
