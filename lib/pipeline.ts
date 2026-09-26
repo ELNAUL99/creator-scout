@@ -7,7 +7,7 @@ import { draftMessage, hoursSaved, ruleReasons } from "./messages";
 import { dictionaryTerms, isNicheId, looksLikePcHardware, nichesFromBrief, shouldExcludePcHardware } from "./niches";
 import { sampleDiscover } from "./sample";
 import { scoreCreator, TIER_BENCHMARK } from "./scoring";
-import { discoverViaSearchIndex } from "./webDiscover";
+import { prenewCollabCreators } from "./prenewCollabs";
 import type { CreatorAccount, DiscoverRequest, DiscoverResponse, MarketTerms, RecentPost, ScoredCreator } from "./types";
 import { fetchChannels, fetchVideos, searchRecentVideos, youtubeUrl, type YtChannel, type YtVideoHit, type YtVideoStats } from "./youtube";
 
@@ -18,14 +18,30 @@ function youtubeKey(reqKey?: string) {
 }
 
 async function attachWebDiscovery(req: DiscoverRequest, result: DiscoverResponse): Promise<DiscoverResponse> {
-  if (req.webDiscover === false) return result;
-  const web = await discoverViaSearchIndex(req);
-  const creators = [...result.creators, ...web.creators].sort((a, b) => b.fit - a.fit);
+  const collabs = prenewCollabCreators(req);
+  let creators = result.creators;
+  let notes = result.notes;
+  if (req.webDiscover !== false) {
+    const web = await discoverViaSearchIndex(req);
+    creators = [...creators, ...web.creators];
+    notes = [...notes, ...web.notes];
+  }
+  if (collabs.length) {
+    const seen = new Set(creators.map((c) => c.displayName.toLowerCase()));
+    for (const c of collabs) {
+      if (!seen.has(c.displayName.toLowerCase())) creators.push(c);
+    }
+    notes = [
+      ...notes,
+      "Includes Prenew’s own collaboration history for this market/niche (country, subs/followers, avg views, game/tech niche). Not scraped from TikTok/Instagram.",
+    ];
+  }
+  creators = [...creators].sort((a, b) => b.fit - a.fit);
   return {
     ...result,
     creators,
     hoursSavedEstimate: hoursSaved(creators.length),
-    notes: [...result.notes, ...web.notes],
+    notes,
   };
 }
 
