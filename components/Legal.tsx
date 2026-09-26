@@ -1,0 +1,62 @@
+import type { ReactNode } from "react";
+
+export const LEGAL_UPDATED = "26 September 2026";
+
+export function LegalShell({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="min-h-full flex flex-col">
+      <header className="border-b border-emerald-900/40 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+        <a href="/" className="text-sm text-emerald-400">
+          ← Creator Scout
+        </a>
+        <LegalNav />
+      </header>
+      <article className="flex-1 mx-auto max-w-2xl px-6 py-10 space-y-5 text-sm text-zinc-300 leading-relaxed">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-400">Prenew</p>
+        <h1 className="text-2xl font-semibold text-zinc-100">{title}</h1>
+        <p className="text-xs text-zinc-500">Last updated {LEGAL_UPDATED}. Written for Creator Scout — not a third-party template.</p>
+        {children}
+      </article>
+      <SiteFooter />
+    </div>
+  );
+}
+
+export function LegalNav() {
+  return (
+    <nav className="flex flex-wrap gap-4 text-sm text-zinc-400">
+      <a className="hover:text-white" href="/lens">
+        Scout Lens
+      </a>
+      <a className="hover:text-white" href="/opt-in">
+        Creator opt-in
+      </a>
+      <a className="hover:text-white" href="/terms">
+        Terms
+      </a>
+      <a className="hover:text-white" href="/privacy">
+        Privacy
+      </a>
+    </nav>
+  );
+}
+
+export function SiteFooter() {
+  return (
+    <footer className="mt-auto border-t border-zinc-800 px-6 py-4 text-xs text-zinc-500 flex flex-wrap gap-4">
+      <span>© {new Date().getFullYear()} Prenew · Creator Scout</span>
+      <a className="hover:text-zinc-200" href="/terms">
+        Terms of Service
+      </a>
+      <a className="hover:text-zinc-200" href="/privacy">
+        Privacy Policy
+      </a>
+    </footer>
+  );
+}
