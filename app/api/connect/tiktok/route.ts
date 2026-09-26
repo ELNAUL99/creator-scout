@@ -7,15 +7,16 @@ import {
   tiktokOAuthConfigured,
 } from "@/lib/oauth";
 
-export async function GET() {
-  const base = appBaseUrl();
+export async function GET(req: Request) {
+  const base = appBaseUrl(req);
   if (!tiktokOAuthConfigured()) {
     return NextResponse.redirect(`${base}/opt-in?intent=tiktok&reason=no_app`);
   }
   const state = randomState();
   const { verifier, challenge } = pkcePair();
-  await setOauthCookie("tt_oauth_state", state);
-  await setOauthCookie("tt_code_verifier", verifier);
+  const secure = base.startsWith("https");
+  await setOauthCookie("tt_oauth_state", state, secure);
+  await setOauthCookie("tt_code_verifier", verifier, secure);
   const redirectUri = process.env.TIKTOK_REDIRECT_URI?.trim() || `${base}/api/connect/tiktok/callback`;
   const url = new URL("https://www.tiktok.com/v2/auth/authorize/");
   url.searchParams.set("client_key", process.env.TIKTOK_CLIENT_KEY!.trim());

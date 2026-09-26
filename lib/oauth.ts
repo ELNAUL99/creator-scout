@@ -1,8 +1,17 @@
 import { createHash, randomBytes } from "crypto";
 import { cookies } from "next/headers";
 
-export function appBaseUrl() {
-  return (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+export function appBaseUrl(req?: Request) {
+  const configured = (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "").trim().replace(/\/$/, "");
+  if (configured) return configured;
+  if (req) {
+    try {
+      return new URL(req.url).origin;
+    } catch {
+      // fall through
+    }
+  }
+  return "http://localhost:3000";
 }
 
 export function tiktokOAuthConfigured() {
@@ -19,9 +28,9 @@ export function pkcePair() {
   return { verifier, challenge };
 }
 
-export async function setOauthCookie(name: string, value: string) {
+export async function setOauthCookie(name: string, value: string, secure = true) {
   const jar = await cookies();
-  jar.set(name, value, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 600, secure: appBaseUrl().startsWith("https") });
+  jar.set(name, value, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 600, secure });
 }
 
 export async function readOauthCookie(name: string) {

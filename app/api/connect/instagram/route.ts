@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { appBaseUrl, instagramOAuthConfigured, randomState, setOauthCookie } from "@/lib/oauth";
 
-export async function GET() {
-  const base = appBaseUrl();
+export async function GET(req: Request) {
+  const base = appBaseUrl(req);
   if (!instagramOAuthConfigured()) {
     return NextResponse.redirect(`${base}/opt-in?intent=instagram&reason=no_app`);
   }
   const state = randomState();
-  await setOauthCookie("ig_oauth_state", state);
+  await setOauthCookie("ig_oauth_state", state, base.startsWith("https"));
   const redirectUri = process.env.INSTAGRAM_REDIRECT_URI?.trim() || `${base}/api/connect/instagram/callback`;
   const url = new URL("https://www.instagram.com/oauth/authorize");
   url.searchParams.set("client_id", process.env.INSTAGRAM_APP_ID!.trim());

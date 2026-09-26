@@ -3,7 +3,7 @@ import { appBaseUrl, readOauthCookie } from "@/lib/oauth";
 import { upsertOptIn } from "@/lib/optInStore";
 
 export async function GET(req: Request) {
-  const base = appBaseUrl();
+  const base = appBaseUrl(req);
   const incoming = new URL(req.url);
   const err = incoming.searchParams.get("error");
   if (err) return NextResponse.redirect(`${base}/opt-in?intent=tiktok&reason=${encodeURIComponent(err)}`);
