@@ -11,11 +11,17 @@ function isPublicPath(pathname: string) {
   return false;
 }
 
-export async function middleware(req: NextRequest) {
-  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim();
-  const anon = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "").trim();
-  // Only gate when the browser can also authenticate (public vars set). This
-  // prevents a lockout if the app deploys before NEXT_PUBLIC_SUPABASE_URL is set.
+// Server/edge runtime: prefer the non-public vars (guaranteed present at runtime),
+// fall back to the NEXT_PUBLIC ones.
+function authEnv() {
+  const url = (process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim();
+  const anon = (process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "").trim();
+  return { url, anon };
+}
+
+export async function proxy(req: NextRequest) {
+  const { url, anon } = authEnv();
+  // Only gate when auth is configured, so deploying before env setup is non-destructive.
   if (!url || !anon) return NextResponse.next();
 
   let res = NextResponse.next({ request: req });
@@ -56,7 +62,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Run on everything except Next internals and static asset files (incl. the
-  // TikTok verification .txt files and favicons served from /public).
   matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|json)$).*)"],
 };

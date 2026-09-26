@@ -6,7 +6,7 @@ import { LegalNav, SiteFooter } from "@/components/Legal";
 import { belongsToMarket } from "@/lib/localeMatch";
 import { DEFAULT_MARKETS, MARKET_REGIONS, MARKETS } from "@/lib/markets";
 import { NICHE_OPTIONS, NICHE_TERMS, type NicheId } from "@/lib/niches";
-import type { DiscoverResponse, ScoredCreator } from "@/lib/types";
+import type { DiscoverResponse, ScoredCreator, Platform } from "@/lib/types";
 import { createSupabaseBrowserClient } from "@/lib/supabaseBrowser";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -94,6 +94,7 @@ export default function ScoutApp() {
   const [markets, setMarkets] = useState<string[]>(DEFAULT_MARKETS);
   const [includeNano, setIncludeNano] = useState(true);
   const [includeMacro, setIncludeMacro] = useState(true);
+  const [platforms, setPlatforms] = useState<Platform[]>(["youtube", "tiktok", "instagram"]);
   const [searchConfigured, setSearchConfigured] = useState(false);
   const [instagramConfigured, setInstagramConfigured] = useState(false);
   const [webDiscover, setWebDiscover] = useState(true);
@@ -150,7 +151,7 @@ export default function ScoutApp() {
           includeNano,
           includeMacro,
           timeWindowDays: 90,
-          platforms: ["youtube", "tiktok", "instagram"],
+          platforms,
           mode: "auto",
           webDiscover,
         }),
@@ -269,6 +270,49 @@ export default function ScoutApp() {
           <p className="text-xs text-muted">
             Results are limited to the countries you select — a country search returns only creators from that country.
           </p>
+          <div className="space-y-2">
+            <p className="text-sm">Platforms</p>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { id: "youtube", label: "YouTube" },
+                { id: "tiktok", label: "TikTok" },
+                { id: "instagram", label: "Instagram" },
+              ] as { id: Platform; label: string }[]).map((p) => {
+                const on = platforms.includes(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() =>
+                      setPlatforms((cur) =>
+                        cur.includes(p.id) ? cur.filter((x) => x !== p.id) : [...cur, p.id],
+                      )
+                    }
+                    className={`rounded-full px-3 py-1 text-sm border transition-colors ${
+                      on
+                        ? "bg-accent text-accent-foreground border-transparent"
+                        : "bg-surface border-border text-muted hover:text-foreground"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+              {["Facebook", "Twitch"].map((label) => (
+                <span
+                  key={label}
+                  title="Coming soon"
+                  className="rounded-full px-3 py-1 text-sm border border-border bg-surface-2 text-muted opacity-60 cursor-not-allowed select-none"
+                >
+                  {label} · soon
+                </span>
+              ))}
+            </div>
+            {platforms.length === 0 && (
+              <p className="text-xs text-red-400">Pick at least one platform.</p>
+            )}
+          </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={includeNano} onChange={(e) => setIncludeNano(e.target.checked)} />
             Include nano (under 10k)
@@ -296,7 +340,7 @@ export default function ScoutApp() {
           <button
             type="button"
             onClick={run}
-            disabled={loading || markets.length === 0 || nicheIds.length === 0}
+            disabled={loading || markets.length === 0 || nicheIds.length === 0 || platforms.length === 0}
             className="w-full btn-primary font-medium py-2.5"
           >
             {loading ? "Searching…" : "Run discovery"}

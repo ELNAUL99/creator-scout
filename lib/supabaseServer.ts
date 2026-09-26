@@ -1,11 +1,16 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
+// Server runtime: prefer the non-public vars (guaranteed present at runtime on
+// Vercel), fall back to the NEXT_PUBLIC ones. The browser uses NEXT_PUBLIC only.
+function serverAuthEnv() {
+  const url = (process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim();
+  const anon = (process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "").trim();
+  return { url, anon };
+}
+
 export function supabaseAuthConfigured() {
-  // Require the PUBLIC vars specifically: gating must only activate when the
-  // browser can also authenticate, otherwise users get locked out.
-  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim();
-  const anon = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "").trim();
+  const { url, anon } = serverAuthEnv();
   return Boolean(url && anon);
 }
 
@@ -15,8 +20,7 @@ export function supabaseAuthConfigured() {
  */
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
-  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim();
-  const anon = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "").trim();
+  const { url, anon } = serverAuthEnv();
   return createServerClient(url, anon, {
     cookies: {
       getAll() {
