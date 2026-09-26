@@ -10,8 +10,6 @@ import type { DiscoverResponse, ScoredCreator } from "@/lib/types";
 import { createSupabaseBrowserClient } from "@/lib/supabaseBrowser";
 import ThemeToggle from "@/components/ThemeToggle";
 
-const SELECT_CLASS = "mt-1 w-full bg-surface-2 border border-border rounded-lg p-2 text-sm";
-
 function csvEscape(v: string) {
   if (/[",\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
   return v;
@@ -96,9 +94,6 @@ export default function ScoutApp() {
   const [markets, setMarkets] = useState<string[]>(DEFAULT_MARKETS);
   const [includeNano, setIncludeNano] = useState(true);
   const [includeMacro, setIncludeMacro] = useState(true);
-  const [mode, setMode] = useState<"auto" | "sample" | "live">("auto");
-  const [youtubeKey, setYoutubeKey] = useState("");
-  const [serverHasKey, setServerHasKey] = useState(false);
   const [searchConfigured, setSearchConfigured] = useState(false);
   const [instagramConfigured, setInstagramConfigured] = useState(false);
   const [webDiscover, setWebDiscover] = useState(true);
@@ -112,21 +107,14 @@ export default function ScoutApp() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("creator-scout-yt-key");
-    if (stored) setYoutubeKey(stored);
     fetch("/api/status")
       .then((r) => r.json())
       .then((d: { youtubeConfigured?: boolean; searchConfigured?: boolean; instagramConfigured?: boolean }) => {
-        setServerHasKey(Boolean(d.youtubeConfigured));
         setSearchConfigured(Boolean(d.searchConfigured));
         setInstagramConfigured(Boolean(d.instagramConfigured));
       })
       .catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (youtubeKey) localStorage.setItem("creator-scout-yt-key", youtubeKey);
-  }, [youtubeKey]);
 
   const visible = useMemo(() => {
     if (!result) return [];
@@ -147,12 +135,6 @@ export default function ScoutApp() {
   }, [result, gemsOnly, showFlagged, includeNano, includeMacro]);
 
   async function run() {
-    if (mode === "live" && !youtubeKey.trim() && !serverHasKey) {
-      setError(
-        "Live YouTube needs an API key. Paste it above, or add YOUTUBE_API_KEY to .env.local and restart npm run dev.",
-      );
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
@@ -169,8 +151,7 @@ export default function ScoutApp() {
           includeMacro,
           timeWindowDays: 90,
           platforms: ["youtube", "tiktok", "instagram"],
-          mode,
-          youtubeApiKey: youtubeKey || undefined,
+          mode: "auto",
           webDiscover,
         }),
       });
@@ -312,36 +293,6 @@ export default function ScoutApp() {
             Untick biggest names to keep the micro/mid shortlist. Search still finds them when the box is on.
             Load unpacked <code>extension/</code> in Opera (opera://extensions) and open a TikTok profile for the live score card.
           </p>
-          <label className="block text-sm">
-            Mode
-            <select
-              className={SELECT_CLASS}
-              value={mode}
-              onChange={(e) => setMode(e.target.value as typeof mode)}
-            >
-              <option value="auto">Auto (live if key, else labelled sample)</option>
-              <option value="sample">Sample only (labelled fictional)</option>
-              <option value="live">Live YouTube API</option>
-            </select>
-          </label>
-          {(mode === "live" || mode === "auto") && (
-            <label className="block text-sm">
-              YouTube API key
-              <input
-                type="password"
-                autoComplete="off"
-                className={SELECT_CLASS}
-                value={youtubeKey}
-                placeholder={serverHasKey ? "Server key is set — optional override" : "Paste key for live search"}
-                onChange={(e) => setYoutubeKey(e.target.value)}
-              />
-              <span className="block mt-1 text-xs text-muted">
-                {serverHasKey
-                  ? "A key is already set on the server."
-                  : "Google Cloud → enable YouTube Data API v3 → create an API key. Or add YOUTUBE_API_KEY to .env.local and restart npm run dev."}
-              </span>
-            </label>
-          )}
           <button
             type="button"
             onClick={run}
