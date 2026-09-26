@@ -8,6 +8,7 @@ import { dictionaryTerms, isNicheId, looksLikePcHardware, nichesFromBrief, shoul
 import { sampleDiscover } from "./sample";
 import { scoreCreator, TIER_BENCHMARK } from "./scoring";
 import { prenewCollabCreators } from "./prenewCollabs";
+import { filterCreatorsBySize, followersMatchSize } from "./sizeRange";
 import { discoverViaSearchIndex } from "./webDiscover";
 import type { CreatorAccount, DiscoverRequest, DiscoverResponse, MarketTerms, RecentPost, ScoredCreator } from "./types";
 import { fetchChannels, fetchVideos, searchRecentVideos, youtubeUrl, type YtChannel, type YtVideoHit, type YtVideoStats } from "./youtube";
@@ -37,7 +38,7 @@ async function attachWebDiscovery(req: DiscoverRequest, result: DiscoverResponse
       "Includes Prenew’s own collaboration history for this market/niche (country, subs/followers, avg views, game/tech niche). Not scraped from TikTok/Instagram.",
     ];
   }
-  creators = [...creators].sort((a, b) => b.fit - a.fit);
+  creators = filterCreatorsBySize(creators, req.sizeMin, req.sizeMax).sort((a, b) => b.fit - a.fit);
   return {
     ...result,
     creators,
@@ -142,13 +143,7 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
       if (!channel) continue;
       const stats = hits.map((h) => videoById.get(h.videoId)).filter(Boolean) as YtVideoStats[];
       const followers = channel.subscriberCount;
-      const includeMacro = req.includeMacro !== false;
-      const inRange =
-        followers <= 0 ||
-        (followers < req.sizeMin && req.includeNano) ||
-        (followers >= req.sizeMin && followers <= req.sizeMax) ||
-        (includeMacro && followers > req.sizeMax);
-      if (!inRange) continue;
+      if (!followersMatchSize(followers, req.sizeMin, req.sizeMax)) continue;
       const blob = `${channel.title} ${channel.description} ${hits.map((h) => h.title).join(" ")} ${stats.map((s) => s.title).join(" ")}`;
       if (
         !belongsToMarket({

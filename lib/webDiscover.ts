@@ -1,4 +1,5 @@
 import { getMarket } from "./markets";
+import { followersMatchSize } from "./sizeRange";
 import { dictionaryTerms, isNicheId, nichesFromBrief, type NicheId } from "./niches";
 import { scoreVisibleProfile } from "./scoreProfile";
 import type { DiscoverRequest, ScoredCreator } from "./types";
@@ -63,11 +64,7 @@ export async function discoverViaSearchIndex(req: DiscoverRequest): Promise<{ cr
             source = "api";
           }
         }
-        const includeMacro = req.includeMacro !== false;
-        if (followers > 0) {
-          if (followers < req.sizeMin && !req.includeNano) continue;
-          if (followers > req.sizeMax && !includeMacro) continue;
-        }
+        if (!followersMatchSize(followers, req.sizeMin, req.sizeMax)) continue;
         creators.push(
           scoreVisibleProfile({
             name,

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import CheckDropdown from "@/components/CheckDropdown";
 import { LegalNav, SiteFooter } from "@/components/Legal";
 import { belongsToMarket } from "@/lib/localeMatch";
+import { followersMatchSize } from "@/lib/sizeRange";
 import { MARKET_REGIONS, MARKETS } from "@/lib/markets";
 import { NICHE_OPTIONS, NICHE_TERMS, type NicheId } from "@/lib/niches";
 import type { DiscoverResponse, ScoredCreator, Platform } from "@/lib/types";
@@ -124,7 +125,7 @@ export default function ScoutApp() {
       .catch(() => {});
   }, []);
 
-  const { visible, hiddenFlagged, hiddenCountry, hiddenSize, hiddenGems, filtersWipedList } = useMemo(() => {
+  const { visible, hiddenFlagged, hiddenCountry, hiddenSize, hiddenGems } = useMemo(() => {
     if (!result) {
       return {
         visible: [] as ScoredCreator[],
@@ -132,16 +133,15 @@ export default function ScoutApp() {
         hiddenCountry: 0,
         hiddenSize: 0,
         hiddenGems: 0,
-        filtersWipedList: false,
       };
     }
-    const fMax = followerMax > 0 ? followerMax : Infinity;
     const vMax = viewMax > 0 ? viewMax : Infinity;
+    const viewsRanged = viewMin > 0 || viewMax > 0;
     let hiddenFlagged = 0;
     let hiddenCountry = 0;
     let hiddenSize = 0;
     let hiddenGems = 0;
-    const kept = result.creators.filter((c) => {
+    const visible = result.creators.filter((c) => {
       if (ruledOut.includes(c.id)) return false;
       if (gemsOnly && !c.hiddenGem) {
         hiddenGems += 1;
@@ -151,13 +151,15 @@ export default function ScoutApp() {
         hiddenFlagged += 1;
         return false;
       }
-      if (c.followers > 0 && (c.followers < followerMin || c.followers > fMax)) {
+      if (!followersMatchSize(c.followers, followerMin, followerMax)) {
         hiddenSize += 1;
         return false;
       }
-      if (c.avgViews > 0 && (c.avgViews < viewMin || c.avgViews > vMax)) {
-        hiddenSize += 1;
-        return false;
+      if (viewsRanged) {
+        if (c.avgViews <= 0 || c.avgViews < viewMin || c.avgViews > vMax) {
+          hiddenSize += 1;
+          return false;
+        }
       }
       if (localOnly) {
         const text = `${c.displayName} ${c.recentContent.map((p) => p.titleOrCaption).join(" ")}`;
@@ -174,16 +176,7 @@ export default function ScoutApp() {
       }
       return true;
     });
-    const remaining = result.creators.filter((c) => !ruledOut.includes(c.id));
-    const filtersWipedList = kept.length === 0 && remaining.length > 0;
-    return {
-      visible: filtersWipedList ? remaining : kept,
-      hiddenFlagged,
-      hiddenCountry,
-      hiddenSize,
-      hiddenGems,
-      filtersWipedList,
-    };
+    return { visible, hiddenFlagged, hiddenCountry, hiddenSize, hiddenGems };
   }, [result, gemsOnly, showFlagged, localOnly, followerMin, followerMax, viewMin, viewMax, ruledOut]);
 
   const PAGE_SIZE = 20;
@@ -204,9 +197,8 @@ export default function ScoutApp() {
           markets,
           sizeMin: followerMin,
           sizeMax: followerMax > 0 ? followerMax : 100_000_000,
-          // Don't let the server pre-drop by tier — the range filters below handle sizing.
-          includeNano: true,
-          includeMacro: true,
+          includeNano: followerMin <= 0,
+          includeMacro: followerMax <= 0,
           timeWindowDays: 90,
           platforms,
           mode: "auto",
@@ -396,6 +388,7 @@ export default function ScoutApp() {
               {[
                 { label: "Nano <10k", min: 0, max: 10_000 },
                 { label: "Micro 10–50k", min: 10_000, max: 50_000 },
+                { label: "50–100k", min: 50_000, max: 100_000 },
                 { label: "Mid 50–250k", min: 50_000, max: 250_000 },
                 { label: "Macro 250k–1M", min: 250_000, max: 1_000_000 },
                 { label: "Mega 1M+", min: 1_000_000, max: 0 },
@@ -408,6 +401,7 @@ export default function ScoutApp() {
                     onClick={() => {
                       setFollowerMin(p.min);
                       setFollowerMax(p.max);
+                      setPage(1);
                     }}
                     className={`rounded-full px-2.5 py-1 text-xs border transition-colors ${
                       on
@@ -420,6 +414,10 @@ export default function ScoutApp() {
                 );
               })}
             </div>
+            <p className="text-xs text-muted">
+              Only listed follower/subscriber counts in this range. Unknown or hidden counts are dropped. Search again
+              after changing size.
+            </p>
             <div className="flex items-center gap-2">
               <input
                 type="number"
@@ -511,15 +509,15 @@ export default function ScoutApp() {
                 <Stat label="Mode" value={result.mode} />
               </div>
               <p className="text-xs text-muted">*4 minutes per creator vs manual scrolling.</p>
-              {(visible.length < result.creators.length || filtersWipedList) && (
+              {(visible.length < result.creators.length || (result.creators.length > 0 && visible.length === 0)) && (
                 <p className="text-sm text-amber-500">
-                  {filtersWipedList
-                    ? `Filters matched 0 of ${result.creators.length} (hidden gems / flags / country / size). Showing all so you can rule people out yourself.`
-                    : `Showing ${visible.length} of ${result.creators.length} found.`}
-                  {!filtersWipedList && hiddenGems > 0 ? ` ${hiddenGems} hidden by “Hidden gems only”.` : ""}
-                  {!filtersWipedList && hiddenFlagged > 0 ? ` ${hiddenFlagged} hidden by brand-risk flags.` : ""}
-                  {!filtersWipedList && hiddenCountry > 0 ? ` ${hiddenCountry} hidden by “Only selected country”.` : ""}
-                  {!filtersWipedList && hiddenSize > 0 ? ` ${hiddenSize} hidden by follower/view range.` : ""}
+                  Showing {visible.length} of {result.creators.length} found.
+                  {hiddenGems > 0 ? ` ${hiddenGems} hidden by “Hidden gems only”.` : ""}
+                  {hiddenFlagged > 0 ? ` ${hiddenFlagged} hidden by brand-risk flags.` : ""}
+                  {hiddenCountry > 0 ? ` ${hiddenCountry} hidden by “Only selected country”.` : ""}
+                  {hiddenSize > 0
+                    ? ` ${hiddenSize} outside the follower/view range (unknown subscriber counts are excluded).`
+                    : ""}
                 </p>
               )}
               {result.notes.map((n) => (
@@ -597,8 +595,14 @@ export default function ScoutApp() {
                         </h2>
                         <p className="text-xs text-muted">
                           {c.searchedMarket} · {c.tier} ·{" "}
-                          {c.followers > 0 ? c.followers.toLocaleString() : "followers via Lens / IG Graph"} · ER{" "}
-                          {(c.engagementRate * 100).toFixed(2)}% · {c.scoringMode} · {c.dataSource} · {c.dataDate}
+                          {c.followers > 0 ? `${c.followers.toLocaleString()} followers` : "no public follower count"}
+                          {c.accounts.some((a) => (a.followers ?? 0) > 0 && a.followers !== c.followers)
+                            ? ` (${c.accounts
+                                .filter((a) => (a.followers ?? 0) > 0)
+                                .map((a) => `${a.platform} ${a.followers!.toLocaleString()}`)
+                                .join(", ")})`
+                            : ""}{" "}
+                          · ER {(c.engagementRate * 100).toFixed(2)}% · {c.scoringMode} · {c.dataSource} · {c.dataDate}
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">

@@ -3,6 +3,7 @@ import { getMarket } from "./markets";
 import { draftMessage, ruleReasons } from "./messages";
 import { dictionaryTerms, isNicheId, type NicheId } from "./niches";
 import { scoreCreator } from "./scoring";
+import { followersMatchSize } from "./sizeRange";
 import type { CreatorAccount, DiscoverRequest, ScoredCreator } from "./types";
 
 /** First-party Prenew collaboration history (spreadsheet they provided). Not scraped. */
@@ -64,6 +65,7 @@ export function prenewCollabCreators(req: DiscoverRequest): ScoredCreator[] {
     const market = getMarket(row.market);
     const preferYt = (req.platforms ?? []).includes("youtube") && row.ytSubs > 0;
     const followers = preferYt ? row.ytSubs : row.ttFol || row.ytSubs;
+    if (!followersMatchSize(followers, req.sizeMin, req.sizeMax)) continue;
     const views = preferYt ? row.ytViews || row.ttViews || 1 : row.ttViews || row.ytViews || 1;
     const text = `${row.name} ${row.nicheLabel} ${row.platforms.join(" ")}`;
     const scored = scoreCreator({
