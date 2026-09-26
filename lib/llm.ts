@@ -16,10 +16,23 @@ function parseJson<T>(raw: string): T | null {
   }
 }
 
+function llmConfig() {
+  // Mistral is OpenAI-compatible; prefer its vars, fall back to OPENAI_* for compatibility.
+  const key = process.env.MISTRAL_API_KEY ?? process.env.OPENAI_API_KEY;
+  const usingMistral = Boolean(process.env.MISTRAL_API_KEY);
+  const base =
+    process.env.LLM_BASE_URL ??
+    process.env.OPENAI_BASE_URL ??
+    (usingMistral ? "https://api.mistral.ai/v1" : "https://api.openai.com/v1");
+  const model =
+    process.env.LLM_MODEL ??
+    process.env.OPENAI_MODEL ??
+    (usingMistral ? "mistral-small-latest" : "gpt-4o-mini");
+  return { key, base, model };
+}
+
 async function complete(prompt: string, system: string) {
-  const key = process.env.OPENAI_API_KEY;
-  const base = process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1";
-  const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+  const { key, base, model } = llmConfig();
   if (!key) return null;
   const res = await fetch(`${base}/chat/completions`, {
     method: "POST",
@@ -95,5 +108,5 @@ JSON only: {"fit": 0-100, "reasons": ["..."], "risks": ["..."]}`;
 }
 
 export function llmAvailable() {
-  return Boolean(process.env.OPENAI_API_KEY);
+  return Boolean(llmConfig().key);
 }
