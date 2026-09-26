@@ -108,7 +108,9 @@ export default function ScoutApp() {
   const [shortlist, setShortlist] = useState<ScoredCreator[]>([]);
   const [gemsOnly, setGemsOnly] = useState(false);
   const [showFlagged, setShowFlagged] = useState(true);
-  const [localOnly, setLocalOnly] = useState(true);
+  const [localOnly, setLocalOnly] = useState(false);
+  const [ruledOut, setRuledOut] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
   const [openId, setOpenId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -132,6 +134,7 @@ export default function ScoutApp() {
     let hiddenCountry = 0;
     let hiddenSize = 0;
     const visible = result.creators.filter((c) => {
+      if (ruledOut.includes(c.id)) return false;
       if (gemsOnly && !c.hiddenGem) return false;
       if (!showFlagged && c.flags.length > 0) {
         hiddenFlagged += 1;
@@ -161,7 +164,12 @@ export default function ScoutApp() {
       return true;
     });
     return { visible, hiddenFlagged, hiddenCountry, hiddenSize };
-  }, [result, gemsOnly, showFlagged, localOnly, followerMin, followerMax, viewMin, viewMax]);
+  }, [result, gemsOnly, showFlagged, localOnly, followerMin, followerMax, viewMin, viewMax, ruledOut]);
+
+  const PAGE_SIZE = 20;
+  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const paged = visible.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   async function run() {
     setLoading(true);
@@ -189,6 +197,8 @@ export default function ScoutApp() {
       if (!res.ok) throw new Error(data.error || "Search failed");
       setResult(data);
       setShortlist([]);
+      setRuledOut([]);
+      setPage(1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Search failed");
     } finally {
@@ -198,6 +208,11 @@ export default function ScoutApp() {
 
   function addToShortlist(c: ScoredCreator) {
     setShortlist((s) => (s.some((x) => x.id === c.id) ? s : [...s, c]));
+  }
+
+  function ruleOut(c: ScoredCreator) {
+    setRuledOut((ids) => (ids.includes(c.id) ? ids : [...ids, c.id]));
+    setShortlist((s) => s.filter((x) => x.id !== c.id));
   }
 
   function exportCsv(rows: ScoredCreator[]) {
@@ -527,9 +542,14 @@ export default function ScoutApp() {
                   {copied ? "Copied for Sheets" : "Copy for Google Sheets"}
                 </button>
                 <span className="text-sm text-muted">Shortlist {shortlist.length}</span>
+                {ruledOut.length > 0 && (
+                  <button type="button" className="text-sm underline" onClick={() => setRuledOut([])}>
+                    Restore {ruledOut.length} ruled out
+                  </button>
+                )}
               </div>
               <div className="space-y-3">
-                {visible.map((c) => {
+                {paged.map((c) => {
                   const channel = channelUrl(c);
                   const content = latestContentUrl(c);
                   return (
@@ -584,6 +604,13 @@ export default function ScoutApp() {
                           onClick={() => addToShortlist(c)}
                         >
                           Shortlist
+                        </button>
+                        <button
+                          type="button"
+                          className="text-xs border border-red-900/60 text-red-300 rounded px-2"
+                          onClick={() => ruleOut(c)}
+                        >
+                          Rule out
                         </button>
                         <button
                           type="button"
@@ -650,6 +677,39 @@ export default function ScoutApp() {
                   );
                 })}
               </div>
+              {visible.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <span className="text-muted">
+                    {visible.length === 0
+                      ? "No rows"
+                      : `${(safePage - 1) * PAGE_SIZE + 1}–${Math.min(safePage * PAGE_SIZE, visible.length)} of ${visible.length}`}
+                    {ruledOut.length > 0 ? ` · ${ruledOut.length} ruled out` : ""}
+                  </span>
+                  {pageCount > 1 && (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="text-xs border border-border rounded px-2 py-1 disabled:opacity-40"
+                        disabled={safePage <= 1}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      >
+                        Previous
+                      </button>
+                      <span className="text-muted self-center">
+                        Page {safePage} / {pageCount}
+                      </span>
+                      <button
+                        type="button"
+                        className="text-xs border border-border rounded px-2 py-1 disabled:opacity-40"
+                        disabled={safePage >= pageCount}
+                        onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </section>
