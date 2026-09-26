@@ -3,6 +3,21 @@ import { appBaseUrl, readOauthCookie } from "@/lib/oauth";
 import { upsertOptIn } from "@/lib/optInStore";
 import { getCurrentWorkspaceId } from "@/lib/auth";
 
+type IgUser = {
+  id?: string;
+  username?: string;
+  name?: string;
+  biography?: string;
+  followers_count?: number;
+};
+
+async function igMe(accessToken: string, fields: string) {
+  const me = await fetch(
+    `https://graph.instagram.com/v21.0/me?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(accessToken)}`,
+  );
+  return (await me.json()) as IgUser & { error?: { message?: string } };
+}
+
 export async function GET(req: Request) {
   const base = appBaseUrl(req);
   const incoming = new URL(req.url);
@@ -29,27 +44,40 @@ export async function GET(req: Request) {
       code,
     }),
   });
-  const token = (await tokenRes.json()) as {
+  const tokenJson = (await tokenRes.json()) as {
     access_token?: string;
     user_id?: number | string;
+    data?: { access_token?: string; user_id?: number | string }[];
     error_type?: string;
   };
-  if (!token.access_token) {
+  const accessToken = tokenJson.access_token ?? tokenJson.data?.[0]?.access_token;
+  const userId = tokenJson.user_id ?? tokenJson.data?.[0]?.user_id;
+  if (!accessToken) {
     return NextResponse.redirect(`${base}/opt-in?intent=instagram&reason=token`);
   }
-  const me = await fetch(
-    `https://graph.instagram.com/me?fields=id,username,name,account_type,media_count&access_token=${encodeURIComponent(token.access_token)}`,
-  );
-  const user = (await me.json()) as { id?: string; username?: string; name?: string };
-  const handle = user.username || String(token.user_id || "instagram");
+
+  let user: IgUser = {};
+  for (const fields of [
+    "id,username,name,biography,followers_count,media_count,account_type",
+    "id,username,name,biography,followers_count",
+    "id,username,name",
+  ]) {
+    const body = await igMe(accessToken, fields);
+    if (!body.error && (body.username || body.id)) {
+      user = body;
+      break;
+    }
+  }
+
+  const handle = user.username || String(userId || user.id || "instagram");
   const workspaceId = await getCurrentWorkspaceId();
   await upsertOptIn(
     {
       platform: "instagram",
       handle,
       displayName: user.name || handle,
-      followers: null,
-      bio: "",
+      followers: user.followers_count ?? null,
+      bio: user.biography ?? "",
       via: "oauth",
     },
     workspaceId,

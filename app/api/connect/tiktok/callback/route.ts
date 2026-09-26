@@ -3,6 +3,24 @@ import { appBaseUrl, readOauthCookie } from "@/lib/oauth";
 import { upsertOptIn } from "@/lib/optInStore";
 import { getCurrentWorkspaceId } from "@/lib/auth";
 
+type TikTokUser = {
+  open_id?: string;
+  display_name?: string;
+  username?: string;
+  bio_description?: string;
+  follower_count?: number;
+};
+
+async function tiktokUserInfo(accessToken: string, fields: string) {
+  const me = await fetch(`https://open.tiktokapis.com/v2/user/info/?fields=${encodeURIComponent(fields)}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  return (await me.json()) as {
+    data?: { user?: TikTokUser };
+    error?: { code?: string; message?: string };
+  };
+}
+
 export async function GET(req: Request) {
   const base = appBaseUrl(req);
   const incoming = new URL(req.url);
@@ -28,26 +46,30 @@ export async function GET(req: Request) {
       code_verifier: verifier,
     }),
   });
-  const token = (await tokenRes.json()) as { access_token?: string; error?: string };
+  const token = (await tokenRes.json()) as { access_token?: string; scope?: string; error?: string };
   if (!token.access_token) {
     return NextResponse.redirect(`${base}/opt-in?intent=tiktok&reason=token`);
   }
-  const fields = "open_id,display_name,username,bio_description,follower_count";
-  const me = await fetch(`https://open.tiktokapis.com/v2/user/info/?fields=${fields}`, {
-    headers: { Authorization: `Bearer ${token.access_token}` },
-  });
-  const body = (await me.json()) as {
-    data?: {
-      user?: {
-        open_id?: string;
-        display_name?: string;
-        username?: string;
-        bio_description?: string;
-        follower_count?: number;
-      };
-    };
-  };
-  const user = body.data?.user;
+
+  const granted = token.scope ?? "";
+  const fields = ["open_id", "display_name"];
+  if (granted.includes("user.info.profile") || !granted) {
+    fields.push("username", "bio_description", "profile_deep_link");
+  }
+  if (granted.includes("user.info.stats") || !granted) {
+    fields.push("follower_count", "likes_count", "video_count");
+  }
+
+  let user: TikTokUser | undefined;
+  for (const set of [fields.join(","), "open_id,display_name,username,bio_description", "open_id,display_name,bio_description", "open_id,display_name"]) {
+    const body = await tiktokUserInfo(token.access_token, set);
+    const ok = !body.error || body.error.code === "ok";
+    if (ok && body.data?.user) {
+      user = body.data.user;
+      break;
+    }
+  }
+
   const handle = user?.username || user?.open_id || "tiktok";
   const workspaceId = await getCurrentWorkspaceId();
   await upsertOptIn(

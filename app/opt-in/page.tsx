@@ -11,6 +11,7 @@ type Saved = {
   handle: string;
   displayName: string;
   followers: number | null;
+  bio?: string;
   consentedAt: string;
   via: string;
 };
@@ -53,7 +54,7 @@ function OptInInner() {
     connected === "instagram" || saved.some((s) => s.platform === "instagram" && s.via === "oauth");
 
   const banner = useMemo(() => {
-    if (connected) return `${connected === "tiktok" ? "TikTok" : "Instagram"} connected. We only store the public profile you authorized.`;
+    if (connected) return `${connected === "tiktok" ? "TikTok" : "Instagram"} connected. Username and bio from the official API are stored below — reconnect if that row looks empty.`;
     if (reason === "no_app") {
       return "Official login needs a TikTok Login Kit / Meta Instagram app. Share your public username below so we can store a consented opt-in without scraping.";
     }
@@ -205,8 +206,14 @@ function OptInInner() {
       {saved.length > 0 && (
         <ul className="space-y-2 text-sm">
           {saved.map((c) => (
-            <li key={c.id} className="border border-border rounded-lg px-3 py-2">
-              {c.displayName} · {c.platform} {c.handle} · {c.via}
+            <li key={c.id} className="border border-border rounded-lg px-3 py-2 space-y-1">
+              <div>
+                {c.displayName} · {c.platform}{" "}
+                <span className="text-accent-text">{c.handle}</span>
+                {c.followers != null ? ` · ${c.followers.toLocaleString()} followers` : ""}
+                <span className="text-muted"> · {c.via}</span>
+              </div>
+              {c.bio ? <p className="text-xs text-muted">{c.bio}</p> : null}
             </li>
           ))}
         </ul>
