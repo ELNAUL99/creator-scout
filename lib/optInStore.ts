@@ -13,7 +13,16 @@ export type OptInRecord = {
   via: "oauth" | "public_handle";
 };
 
-const FILE = path.join(process.cwd(), "data", "opt-ins.json");
+// Vercel's serverless filesystem is read-only except for /tmp. Use a writable
+// directory there in production; fall back to the repo's data/ dir locally.
+// Note: /tmp is ephemeral (per-instance, not shared or durable) — swap this for
+// a real datastore (KV/Postgres) when opt-ins must persist across invocations.
+const DATA_DIR = process.env.DATA_DIR
+  ? process.env.DATA_DIR
+  : process.env.VERCEL
+    ? path.join("/tmp", "creator-scout")
+    : path.join(process.cwd(), "data");
+const FILE = path.join(DATA_DIR, "opt-ins.json");
 
 async function readAll(): Promise<OptInRecord[]> {
   try {
@@ -25,8 +34,13 @@ async function readAll(): Promise<OptInRecord[]> {
 }
 
 async function writeAll(rows: OptInRecord[]) {
-  await mkdir(path.dirname(FILE), { recursive: true });
-  await writeFile(FILE, JSON.stringify(rows, null, 2), "utf8");
+  try {
+    await mkdir(path.dirname(FILE), { recursive: true });
+    await writeFile(FILE, JSON.stringify(rows, null, 2), "utf8");
+  } catch (err) {
+    // Never let a persistence failure crash the OAuth callback. Log and continue.
+    console.error("optInStore: failed to persist opt-ins", err);
+  }
 }
 
 export async function listOptIns() {
