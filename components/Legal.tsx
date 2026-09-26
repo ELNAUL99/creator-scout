@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { BrandHomeLink } from "@/components/BrandHomeLink";
 
 export const LEGAL_UPDATED = "26 September 2026";
 
@@ -12,9 +13,7 @@ export function LegalShell({
   return (
     <div className="min-h-full flex flex-col">
       <header className="border-b border-border px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-        <a href="/" className="text-sm text-accent-text">
-          ← Creator Scout
-        </a>
+        <BrandHomeLink compact />
         <LegalNav />
       </header>
       <article className="flex-1 mx-auto max-w-2xl px-6 py-10 space-y-5 text-sm text-muted leading-relaxed">

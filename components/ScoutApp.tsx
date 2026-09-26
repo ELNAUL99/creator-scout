@@ -8,6 +8,7 @@ import { DEFAULT_MARKETS, MARKET_REGIONS, MARKETS } from "@/lib/markets";
 import { NICHE_OPTIONS, NICHE_TERMS, type NicheId } from "@/lib/niches";
 import type { DiscoverResponse, ScoredCreator, Platform } from "@/lib/types";
 import { createSupabaseBrowserClient } from "@/lib/supabaseBrowser";
+import { BrandHomeLink } from "@/components/BrandHomeLink";
 import ThemeToggle from "@/components/ThemeToggle";
 
 function csvEscape(v: string) {
@@ -219,10 +220,7 @@ export default function ScoutApp() {
   return (
     <div className="min-h-full flex flex-col text-foreground">
       <header className="border-b border-border px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-          <a href="/" className="block">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-accent-text">Prenew hackathon</p>
-            <h1 className="text-xl font-semibold tracking-tight">Creator Scout</h1>
-          </a>
+        <BrandHomeLink />
         <div className="flex items-center gap-3">
           <LegalNav />
           <ThemeToggle />

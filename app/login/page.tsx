@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabaseBrowser";
 import { safePostAuthPath } from "@/lib/paths";
+import { BrandHomeLink } from "@/components/BrandHomeLink";
 
 function LoginInner() {
   const router = useRouter();
@@ -35,8 +36,8 @@ function LoginInner() {
     <div className="min-h-full flex items-center justify-center px-6 py-16">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-accent-text">Creator Scout</p>
-          <h1 className="text-2xl font-semibold mt-1">Sign in</h1>
+          <BrandHomeLink />
+          <h1 className="text-2xl font-semibold mt-3">Sign in</h1>
         </div>
         <form onSubmit={submit} className="space-y-3">
           <input

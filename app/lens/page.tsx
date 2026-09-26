@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { LegalNav, SiteFooter } from "@/components/Legal";
+import { BrandHomeLink } from "@/components/BrandHomeLink";
 
 type ScoreResult = {
   name?: string;
@@ -58,9 +59,7 @@ export default function LensPage() {
   return (
     <div className="min-h-full flex flex-col">
       <header className="border-b border-border px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-        <a href="/" className="text-sm text-accent-text">
-          ← Creator Scout
-        </a>
+        <BrandHomeLink compact />
         <LegalNav />
       </header>
       <div className="flex-1 max-w-2xl mx-auto px-6 py-10 space-y-6 w-full">

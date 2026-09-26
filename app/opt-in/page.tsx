@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { LegalNav, SiteFooter } from "@/components/Legal";
+import { BrandHomeLink } from "@/components/BrandHomeLink";
 import ThemeToggle from "@/components/ThemeToggle";
 
 type Saved = {
@@ -91,9 +92,7 @@ function OptInInner() {
   return (
     <div className="min-h-full flex flex-col">
       <header className="border-b border-border px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-        <a href="/" className="text-sm text-accent-text">
-          ← Creator Scout
-        </a>
+        <BrandHomeLink compact />
         <div className="flex items-center gap-3">
           <LegalNav />
           <ThemeToggle />
