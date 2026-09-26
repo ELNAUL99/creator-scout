@@ -93,16 +93,18 @@ function latestContentUrl(c: ScoredCreator) {
   return `https://www.youtube.com/results?search_query=${q}`;
 }
 
-export default function ScoutApp() {
-  const [nicheIds, setNicheIds] = useState<NicheId[]>([]);
-  const [markets, setMarkets] = useState<string[]>([]);
+export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean }) {
+  const [nicheIds, setNicheIds] = useState<NicheId[]>(() => (judgeDemo ? ["gaming"] : []));
+  const [markets, setMarkets] = useState<string[]>(() => (judgeDemo ? ["VN"] : []));
   // Size filters (0 = no limit). Default: no limits — serve any creator size.
   const [followerMin, setFollowerMin] = useState(0);
   const [followerMax, setFollowerMax] = useState(0);
   const [viewMin, setViewMin] = useState(0);
   const [viewMax, setViewMax] = useState(0);
-  const [platforms, setPlatforms] = useState<Platform[]>(["youtube", "tiktok", "instagram", "facebook", "twitch"]);
-  const [includePresetCatalog, setIncludePresetCatalog] = useState(true);
+  const [platforms, setPlatforms] = useState<Platform[]>(() =>
+    judgeDemo ? ["youtube"] : ["youtube", "tiktok", "instagram", "facebook", "twitch"],
+  );
+  const [includePresetCatalog, setIncludePresetCatalog] = useState(false);
   const [includePrenewCollabs, setIncludePrenewCollabs] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -307,11 +309,24 @@ export default function ScoutApp() {
       </header>
 
       <div className="px-6 py-3 bg-accent-soft text-sm text-foreground border-b border-border">
-        Demo path: pick a niche and a short brief, then search. Full brand fit (name, business, references) is on{" "}
-        <a href="/lens" className="text-accent-text underline">
-          Scout Lens
-        </a>
-        , for one profile you already have open. No fake accounts, proxies, or login bypass.
+        {judgeDemo ? (
+          <>
+            Judge path: Gaming × Vietnam × YouTube. Demo catalog is off, so <strong>Showing</strong> should match{" "}
+            <strong>Found</strong>. Click Run discovery, open a card, then ask a follow-up. Brand fit is on{" "}
+            <a href="/lens" className="text-accent-text underline">
+              Scout Lens
+            </a>
+            . YouTube is live API — nothing is sent to creators.
+          </>
+        ) : (
+          <>
+            Pick a niche and a short brief, then search. Full brand fit is on{" "}
+            <a href="/lens" className="text-accent-text underline">
+              Scout Lens
+            </a>
+            , for one profile you already have open. No fake accounts, proxies, or login bypass.
+          </>
+        )}
       </div>
 
       <main className="mx-auto max-w-6xl px-6 py-8 grid gap-8 lg:grid-cols-[320px_1fr]">

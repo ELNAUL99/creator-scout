@@ -40,14 +40,14 @@ Without keys, **Auto** mode returns **labelled sample** YouTube profiles (fictio
 | `OPENAI_BASE_URL` | Optional compatible gateway |
 | `OPENAI_MODEL` | Defaults to `gpt-4o-mini` |
 
-## Demo flow
+## Demo flow (60 seconds)
 
-1. Pick 2–3 markets and a niche. Keep **Discover TikTok/Instagram via site: search** on.
-2. Run discovery — YouTube live or labelled sample; real handles if a search API key is set.
-3. Load unpacked `extension/` in Opera GX (`opera://extensions` → Developer mode). Open a real Finnish TikTok creator — the score card pops up.
-4. Optional: Business Discovery fills Instagram follower/post stats on discovered usernames.
+1. Open `/app?demo=1` (also on the home page: **60-second judge demo**). Presets: Gaming, Vietnam, YouTube only, demo catalog off.
+2. Run discovery. **Showing** should match **Found**. Open a card → Why → follow-up (“How well known are they?”).
+3. Optional: `/lens` — paste one public profile. Brand name is optional.
+4. Say plainly: YouTube is live API. Other platforms are labelled demo / Connect / Lens. Nothing is sent to creators.
 
-Scout Lens mock: `/lens`.
+Without `?demo=1`, pick any niche and country yourself. Keep the demo catalog unchecked for a live YouTube-only list.
 
 ## Stack
 
