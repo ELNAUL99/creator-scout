@@ -107,7 +107,8 @@ export default function ScoutApp() {
   const [result, setResult] = useState<DiscoverResponse | null>(null);
   const [shortlist, setShortlist] = useState<ScoredCreator[]>([]);
   const [gemsOnly, setGemsOnly] = useState(false);
-  const [showFlagged, setShowFlagged] = useState(false);
+  const [showFlagged, setShowFlagged] = useState(true);
+  const [localOnly, setLocalOnly] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -121,27 +122,46 @@ export default function ScoutApp() {
       .catch(() => {});
   }, []);
 
-  const visible = useMemo(() => {
-    if (!result) return [];
+  const { visible, hiddenFlagged, hiddenCountry, hiddenSize } = useMemo(() => {
+    if (!result) {
+      return { visible: [] as ScoredCreator[], hiddenFlagged: 0, hiddenCountry: 0, hiddenSize: 0 };
+    }
     const fMax = followerMax > 0 ? followerMax : Infinity;
     const vMax = viewMax > 0 ? viewMax : Infinity;
-    return result.creators.filter((c) => {
+    let hiddenFlagged = 0;
+    let hiddenCountry = 0;
+    let hiddenSize = 0;
+    const visible = result.creators.filter((c) => {
       if (gemsOnly && !c.hiddenGem) return false;
-      if (!showFlagged && c.flags.length > 0) return false;
-      // Follower / subscriber range (only filter creators whose count is known).
-      if (c.followers > 0 && (c.followers < followerMin || c.followers > fMax)) return false;
-      // Avg-views range (only filter creators whose avg views is known).
-      if (c.avgViews > 0 && (c.avgViews < viewMin || c.avgViews > vMax)) return false;
-      // Always constrain to the selected country: a country search returns only that country.
-      const text = `${c.displayName} ${c.recentContent.map((p) => p.titleOrCaption).join(" ")}`;
-      return belongsToMarket({
-        channelCountry: c.country,
-        targetMarket: c.searchedMarket,
-        language: c.languages[0] ?? "en",
-        text,
-      });
+      if (!showFlagged && c.flags.length > 0) {
+        hiddenFlagged += 1;
+        return false;
+      }
+      if (c.followers > 0 && (c.followers < followerMin || c.followers > fMax)) {
+        hiddenSize += 1;
+        return false;
+      }
+      if (c.avgViews > 0 && (c.avgViews < viewMin || c.avgViews > vMax)) {
+        hiddenSize += 1;
+        return false;
+      }
+      if (localOnly) {
+        const text = `${c.displayName} ${c.recentContent.map((p) => p.titleOrCaption).join(" ")}`;
+        const local = belongsToMarket({
+          channelCountry: c.country,
+          targetMarket: c.searchedMarket,
+          language: c.languages[0] ?? "en",
+          text,
+        });
+        if (!local) {
+          hiddenCountry += 1;
+          return false;
+        }
+      }
+      return true;
     });
-  }, [result, gemsOnly, showFlagged, followerMin, followerMax, viewMin, viewMax]);
+    return { visible, hiddenFlagged, hiddenCountry, hiddenSize };
+  }, [result, gemsOnly, showFlagged, localOnly, followerMin, followerMax, viewMin, viewMax]);
 
   async function run() {
     setLoading(true);
@@ -446,7 +466,8 @@ export default function ScoutApp() {
           {result && (
             <>
               <div className="flex flex-wrap gap-3">
-                <Stat label="Creators" value={String(result.creators.length)} />
+                <Stat label="Showing" value={String(visible.length)} />
+                <Stat label="Found" value={String(result.creators.length)} />
                 <Stat label="Under 50k" value={String(under50)} />
                 <Stat label="Hidden gems" value={String(gems)} />
                 <Stat label="Hours saved*" value={String(result.hoursSavedEstimate)} />
@@ -454,6 +475,14 @@ export default function ScoutApp() {
                 <Stat label="Mode" value={result.mode} />
               </div>
               <p className="text-xs text-muted">*4 minutes per creator vs manual scrolling.</p>
+              {visible.length < result.creators.length && (
+                <p className="text-sm text-amber-500">
+                  Showing {visible.length} of {result.creators.length} found.
+                  {hiddenFlagged > 0 ? ` ${hiddenFlagged} hidden by brand-risk flags (keep “Show brand-risk flags” on).` : ""}
+                  {hiddenCountry > 0 ? ` ${hiddenCountry} hidden as not matching the selected country (untick “Only selected country”).` : ""}
+                  {hiddenSize > 0 ? ` ${hiddenSize} hidden by follower/view range.` : ""}
+                </p>
+              )}
               {result.notes.map((n) => (
                 <p key={n} className="text-xs text-amber-500">
                   {n}
@@ -482,6 +511,10 @@ export default function ScoutApp() {
                     onChange={(e) => setShowFlagged(e.target.checked)}
                   />
                   Show brand-risk flags
+                </label>
+                <label className="text-sm flex gap-2">
+                  <input type="checkbox" checked={localOnly} onChange={(e) => setLocalOnly(e.target.checked)} />
+                  Only selected country
                 </label>
                 <button
                   type="button"
