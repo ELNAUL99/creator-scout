@@ -123,11 +123,13 @@ export function detectFlags(opts: {
   return flags;
 }
 
-export function suggestedDeal(tier: SizeTier, brandFit: number) {
+export function suggestedDeal(tier: SizeTier, brandFit: number, prenew = true) {
   if ((tier === "nano" || tier === "micro") && brandFit >= 75) {
-    return "Product to review + affiliate code";
+    return prenew ? "Product to review + affiliate code" : "Product seed + affiliate code";
   }
-  if (tier === "nano" || tier === "micro") return "Affiliate code + trade-in campaign";
+  if (tier === "nano" || tier === "micro") {
+    return prenew ? "Affiliate code + trade-in campaign" : "Affiliate code + seeded product";
+  }
   if (tier === "mid") return "Paid video + affiliate code";
   return "Paid integration; test one post first";
 }
@@ -183,6 +185,10 @@ export function scoreCreator(input: {
     flags,
     hiddenGem,
     engagementRate: er,
-    suggestedDeal: suggestedDeal(tier, components.brandFit),
+    suggestedDeal: suggestedDeal(
+      tier,
+      components.brandFit,
+      input.brand.name.trim().toLowerCase() === "prenew",
+    ),
   };
 }

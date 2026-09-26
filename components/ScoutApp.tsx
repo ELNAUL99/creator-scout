@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import CheckDropdown from "@/components/CheckDropdown";
 import { LegalNav, SiteFooter } from "@/components/Legal";
 import { matchesSelectedCountries } from "@/lib/localeMatch";
+import { parseBrandList } from "@/lib/brand";
+import { affiliateCode } from "@/lib/messages";
 import { followersMatchSize } from "@/lib/sizeRange";
 import { MARKET_REGIONS, MARKETS } from "@/lib/markets";
 import { NICHE_OPTIONS, NICHE_TERMS, type NicheId } from "@/lib/niches";
@@ -12,13 +14,14 @@ import type { RisingResponse } from "@/lib/trends";
 import { createSupabaseBrowserClient } from "@/lib/supabaseBrowser";
 import { BrandHomeLink } from "@/components/BrandHomeLink";
 import ThemeToggle from "@/components/ThemeToggle";
+import CreatorFollowUp from "@/components/CreatorFollowUp";
 
 function csvEscape(v: string) {
   if (/[",\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
   return v;
 }
 
-function toCsv(rows: ScoredCreator[]) {
+function toCsv(rows: ScoredCreator[], brandLabel = "PRENEW") {
   const header = [
     "Channel",
     "YouTube",
@@ -67,7 +70,7 @@ function toCsv(rows: ScoredCreator[]) {
         c.flags.join("; "),
         c.suggestedDeal,
         c.contactRoute,
-        `PRENEW-${c.displayName.replace(/[^A-Za-z0-9]/g, "").slice(0, 10).toUpperCase()}`,
+        affiliateCode(c.displayName, brandLabel || "PRENEW"),
         c.messageDraft,
         c.dataSource,
         c.dataDate,
@@ -100,10 +103,11 @@ export default function ScoutApp() {
   const [followerMax, setFollowerMax] = useState(0);
   const [viewMin, setViewMin] = useState(0);
   const [viewMax, setViewMax] = useState(0);
-  const [platforms, setPlatforms] = useState<Platform[]>(["youtube", "tiktok", "instagram"]);
+  const [platforms, setPlatforms] = useState<Platform[]>(["youtube", "tiktok", "instagram", "facebook", "twitch"]);
   const [searchConfigured, setSearchConfigured] = useState(false);
   const [instagramConfigured, setInstagramConfigured] = useState(false);
   const [webDiscover, setWebDiscover] = useState(true);
+  const [includePresetCatalog, setIncludePresetCatalog] = useState(true);
   const [includePrenewCollabs, setIncludePrenewCollabs] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,6 +122,10 @@ export default function ScoutApp() {
   const [copied, setCopied] = useState(false);
   const [trendsLoading, setTrendsLoading] = useState(false);
   const [trends, setTrends] = useState<RisingResponse | null>(null);
+  const [brandName, setBrandName] = useState("");
+  const [brandBusiness, setBrandBusiness] = useState("");
+  const [brandRefs, setBrandRefs] = useState("");
+  const [brandRivals, setBrandRivals] = useState("");
   const [brandWish, setBrandWish] = useState("");
 
   useEffect(() => {
@@ -207,9 +215,15 @@ export default function ScoutApp() {
           platforms,
           mode: "auto",
           webDiscover,
-          includePrenewCollabs,
+          includePresetCatalog,
+          includePrenewCollabs: (!brandName.trim() || brandName.trim().toLowerCase() === "prenew") && includePrenewCollabs,
           localOnly: markets.length > 0 && !includeOtherCountries,
-          brand: brandWish.trim() ? { pitch: brandWish.trim() } : undefined,
+          brand: {
+            name: brandName.trim() || undefined,
+            pitch: [brandBusiness.trim(), brandWish.trim()].filter(Boolean).join(". ") || undefined,
+            goodFitWords: parseBrandList(brandRefs),
+            competitors: parseBrandList(brandRivals),
+          },
         }),
       });
       const data = await res.json();
@@ -257,7 +271,7 @@ export default function ScoutApp() {
   }
 
   function exportCsv(rows: ScoredCreator[]) {
-    const blob = new Blob([toCsv(rows)], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob([toCsv(rows, brandName.trim() || "PRENEW")], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "creator-scout-shortlist.csv";
@@ -265,7 +279,7 @@ export default function ScoutApp() {
   }
 
   async function copySheets(rows: ScoredCreator[]) {
-    const text = toCsv(rows).replace(/","/g, "\t").replace(/^"|"$/gm, "").replace(/""/g, '"');
+    const text = toCsv(rows, brandName.trim() || "PRENEW").replace(/","/g, "\t").replace(/^"|"$/gm, "").replace(/""/g, '"');
     const tsv = rows
       .map((c) =>
         [
@@ -314,9 +328,9 @@ export default function ScoutApp() {
       </header>
 
       <div className="px-6 py-3 bg-accent-soft text-sm text-foreground border-b border-border">
-        Demo path: discover TikTok/Instagram handles with search-engine <code className="text-accent-text">site:</code>{" "}
-        queries, pull live Instagram stats via Graph Business Discovery, score a real TikTok profile with
-        Scout Lens. Production swaps step 1 for a licensed data API; everything else stays. No fake accounts,
+        Demo path: default brand is <strong>Prenew</strong> (refurbished gaming PCs). For any other advertiser, enter
+        their name, business, and references so fit and outreach use that brand — not Prenew. TikTok/Instagram handles
+        use search-engine <code className="text-accent-text">site:</code> queries plus Scout Lens. No fake accounts,
         proxies, or login bypass.
       </div>
 
@@ -354,15 +368,44 @@ export default function ScoutApp() {
             <p className="text-xs text-muted">Default: only creators whose YouTube country is {markets.join(", ")}.</p>
           )}
           <div className="space-y-2">
-            <p className="text-sm">What should creators feel like for the brand?</p>
+            <p className="text-sm font-medium">Brand (fit is calculated from this)</p>
+            <p className="text-xs text-muted">
+              Leave blank to score for <span className="text-foreground">Prenew</span> — refurbished gaming PCs. For
+              another company, fill name, business, and references so the agent does not use Prenew’s keywords.
+            </p>
+            <input
+              className="w-full field p-2 text-sm"
+              value={brandName}
+              onChange={(e) => setBrandName(e.target.value)}
+              placeholder="Brand name — e.g. Prenew, or Glossier"
+            />
             <textarea
               rows={3}
-              value={brandWish}
-              onChange={(e) => setBrandWish(e.target.value)}
-              placeholder="e.g. witty Finnish Minecraft builders who already talk refurbished PCs, not luxury unboxings"
+              value={brandBusiness}
+              onChange={(e) => setBrandBusiness(e.target.value)}
+              placeholder="Business — what you sell, who it’s for, the offer"
               className="w-full field p-2 text-sm"
             />
-            <p className="text-xs text-muted">Used in fit scoring so matches are closer to the brand you actually want.</p>
+            <textarea
+              rows={2}
+              value={brandRefs}
+              onChange={(e) => setBrandRefs(e.target.value)}
+              placeholder="References — products, keywords, creators or campaigns you want to resemble (comma or new line)"
+              className="w-full field p-2 text-sm"
+            />
+            <input
+              className="w-full field p-2 text-sm"
+              value={brandRivals}
+              onChange={(e) => setBrandRivals(e.target.value)}
+              placeholder="Rival brands (optional) — flagged if a creator already promotes them"
+            />
+            <textarea
+              rows={2}
+              value={brandWish}
+              onChange={(e) => setBrandWish(e.target.value)}
+              placeholder="Optional: how creators should sound — e.g. practical, not luxury unboxings"
+              className="w-full field p-2 text-sm"
+            />
           </div>
           <div className="space-y-2">
             <p className="text-sm">Platforms</p>
@@ -371,6 +414,8 @@ export default function ScoutApp() {
                 { id: "youtube", label: "YouTube" },
                 { id: "tiktok", label: "TikTok" },
                 { id: "instagram", label: "Instagram" },
+                { id: "facebook", label: "Facebook" },
+                { id: "twitch", label: "Twitch" },
               ] as { id: Platform; label: string }[]).map((p) => {
                 const on = platforms.includes(p.id);
                 return (
@@ -393,15 +438,6 @@ export default function ScoutApp() {
                   </button>
                 );
               })}
-              {["Facebook", "Twitch"].map((label) => (
-                <span
-                  key={label}
-                  title="Coming soon"
-                  className="rounded-full px-3 py-1 text-sm border border-border bg-surface-2 text-muted opacity-60 cursor-not-allowed select-none"
-                >
-                  {label} · soon
-                </span>
-              ))}
             </div>
             {platforms.length === 0 && (
               <p className="text-xs text-red-400">Pick at least one platform.</p>
@@ -500,21 +536,30 @@ export default function ScoutApp() {
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={includePresetCatalog}
+              onChange={(e) => setIncludePresetCatalog(e.target.checked)}
+            />
+            Include demo catalog (100 fictional creators per TikTok, Instagram, Facebook, Twitch)
+          </label>
+          <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={webDiscover} onChange={(e) => setWebDiscover(e.target.checked)} />
             Find extra TikTok / Instagram handles via site: search
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
-              checked={includePrenewCollabs}
+              checked={includePrenewCollabs && (!brandName.trim() || brandName.trim().toLowerCase() === "prenew")}
+              disabled={Boolean(brandName.trim() && brandName.trim().toLowerCase() !== "prenew")}
               onChange={(e) => setIncludePrenewCollabs(e.target.checked)}
             />
-            Also list Prenew collab-sheet names (not live API)
+            Also list Prenew collab-sheet names (Prenew demo only)
           </label>
           <p className="text-xs text-muted">
             Connecting TikTok or Instagram only imports the account you logged in as. Those logins cannot search or
-            scrape other people. Other TT/IG names come from links on YouTube channels, Scout Lens, or a search-engine
-            site: query if CSE/Brave keys are set.
+            scrape other people. Facebook/Twitch rows are the labelled demo catalog. Other live TT/IG names come from
+            YouTube links, Scout Lens, or site: search.
           </p>
           <p className="text-xs text-muted">
             {searchConfigured
@@ -634,7 +679,7 @@ export default function ScoutApp() {
 
           {!result && !trends && (
             <div className="card p-8 text-muted">
-              <p className="text-lg text-foreground">Pick a niche and a country. Local terms. Ranked, explained, outreach-ready.</p>
+              <p className="text-lg text-foreground">Pick a niche and a country. Local terms. Ranked, explained — then ask follow-ups before you shortlist.</p>
               <p className="mt-2 text-sm">
                 Try a niche and a country from the dropdowns — local terms still run per market.
               </p>
@@ -857,6 +902,7 @@ export default function ScoutApp() {
                           Deal: {c.suggestedDeal} · {c.contactRoute}
                         </p>
                         <pre className="whitespace-pre-wrap text-xs bg-surface-2 p-3 rounded-lg">{c.messageDraft}</pre>
+                        <CreatorFollowUp key={c.id} creator={c} />
                       </div>
                     )}
                   </article>

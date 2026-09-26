@@ -47,9 +47,10 @@ type MsgParams = {
   tag: string;
 };
 
-export function affiliateCode(name: string) {
+export function affiliateCode(name: string, brandName = "PRENEW") {
+  const brand = brandName.replace(/[^A-Za-z0-9]/g, "").slice(0, 10).toUpperCase() || "BRAND";
   const slug = name.replace(/[^A-Za-z0-9]/g, "").slice(0, 10).toUpperCase() || "CREATOR";
-  return `PRENEW-${slug}`;
+  return `${brand}-${slug}`;
 }
 
 export function draftMessage(opts: {
@@ -60,14 +61,20 @@ export function draftMessage(opts: {
   brand?: BrandProfile;
 }) {
   const brand = opts.brand ?? PRENEW_BRAND;
-  const lang = TEMPLATES[opts.language] ? opts.language : "en";
+  const prenew = brand.name.trim().toLowerCase() === "prenew";
+  const lang = prenew && TEMPLATES[opts.language] ? opts.language : "en";
   const tag = brand.disclosureTags[lang] ?? brand.disclosureTags.en;
+  const pitch = brand.pitch.replace(/\s+/g, " ").slice(0, 140);
+  const code = affiliateCode(opts.name, brand.name);
+  if (!prenew) {
+    return `Hi ${opts.name} — I liked “${opts.title.slice(0, 80)}”. I'm reaching out from ${brand.name} (${pitch}) about a collaboration that fits your audience. Suggested: ${opts.deal}. Your code: ${code}. ${tag}`;
+  }
   return TEMPLATES[lang]({
     name: opts.name,
     title: opts.title.slice(0, 80),
     brand: brand.name,
     deal: opts.deal,
-    code: affiliateCode(opts.name),
+    code,
     tag,
   });
 }
@@ -80,13 +87,21 @@ export function ruleReasons(opts: {
   recent: number;
   hiddenGem: boolean;
   marketLanguage: boolean;
+  brandName?: string;
+  prenew?: boolean;
 }) {
   const reasons: string[] = [];
-  if (opts.niche >= 70) reasons.push("Recent titles match the brief terms, not just a generic gaming channel.");
+  if (opts.niche >= 70) reasons.push("Recent titles match the brief terms, not just a generic channel.");
   else reasons.push("Partial topic overlap — worth a look but not a perfect niche match.");
   if (opts.audience >= 85) reasons.push("Channel country or language lines up with the target market.");
   if (opts.engagement >= 70) reasons.push("Engagement is strong relative to this size tier.");
-  if (opts.brand >= 75) reasons.push("Content already talks budget, used, or PC building — natural brand fit.");
+  if (opts.brand >= 75) {
+    reasons.push(
+      opts.prenew !== false
+        ? "Content already talks budget, used, or PC building — natural brand fit."
+        : `Content already overlaps what ${opts.brandName ?? "this brand"} talks about.`,
+    );
+  }
   if (opts.recent >= 80) reasons.push("Posted in the last month, so outreach is timely.");
   if (opts.hiddenGem) reasons.push("Hidden gem: under 50k followers, fit ≥ 70, no brand-risk flags.");
   return reasons.slice(0, 4);

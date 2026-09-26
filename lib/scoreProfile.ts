@@ -1,7 +1,7 @@
-import { mergeBrand } from "./brand";
+import { isPrenewBrand, mergeBrand } from "./brand";
 import { draftMessage, ruleReasons } from "./messages";
 import { scoreCreator } from "./scoring";
-import type { Platform, ScoredCreator } from "./types";
+import type { BrandProfile, Platform, ScoredCreator } from "./types";
 
 export function scoreVisibleProfile(input: {
   name: string;
@@ -19,8 +19,9 @@ export function scoreVisibleProfile(input: {
   source: ScoredCreator["accounts"][0]["source"];
   url: string;
   handle: string;
+  brand?: Partial<BrandProfile>;
 }) {
-  const brand = mergeBrand();
+  const brand = mergeBrand(input.brand);
   const text = `${input.bio} ${input.captions.join(" ")}`;
   const scored = scoreCreator({
     briefTerms: input.briefTerms,
@@ -44,6 +45,8 @@ export function scoreVisibleProfile(input: {
     recent: scored.components.recentActivity,
     hiddenGem: scored.hiddenGem,
     marketLanguage: true,
+    brandName: brand.name,
+    prenew: isPrenewBrand(brand),
   });
   const creator: ScoredCreator = {
     id: `${input.platform}:${input.handle}`,

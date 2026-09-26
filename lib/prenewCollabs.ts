@@ -144,6 +144,8 @@ export function prenewCollabCreators(req: DiscoverRequest): ScoredCreator[] {
           recent: scored.components.recentActivity,
           hiddenGem: scored.hiddenGem,
           marketLanguage: true,
+          brandName: brand.name,
+          prenew: true,
         }),
       ],
       llmFit: null,

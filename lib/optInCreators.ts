@@ -28,6 +28,7 @@ function toCreator(row: OptInRecord, req: DiscoverRequest): ScoredCreator {
     source: "opt_in",
     url,
     handle: row.platform === "tiktok" ? `@${handle}` : handle,
+    brand: req.brand,
   });
   creator.reasons = [
     `Official ${row.platform} ${row.via === "oauth" ? "login" : "opt-in"} — live profile fields from the connected account, not the collab sheet.`,

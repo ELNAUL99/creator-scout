@@ -1,5 +1,6 @@
 import { dictionaryTerms, isNicheId, nichesFromBrief, type NicheId } from "./niches";
 import { listLensCaptures } from "./lensStore";
+import { presetRisingTrends } from "./presetTrends";
 import { hitsFromSearchItems, searchApiConfigured, searchIndexedWeb } from "./webSearch";
 import { fetchMostPopular } from "./youtube";
 
@@ -118,17 +119,17 @@ export async function runRisingTrends(
   const suggested = await suggestFiveTopics(nicheIds);
   notes.push(suggested.note);
 
+  const staged = presetRisingTrends();
+
   if (!searchApiConfigured()) {
     return {
       createdAt: new Date().toISOString(),
       apiUnitsUsed: suggested.units,
-      notes,
-      suggestions: suggested.topics,
-      breakouts: [],
-      chart: [],
-      trends: suggested.topics.map((label) => ({ label, hits: [] })),
-      error:
-        "Suggested topics are ready, but TikTok handles need GOOGLE_CSE_KEY + GOOGLE_CSE_CX (or Brave). Open a trending TikTok in Scout Lens for views vs followers.",
+      notes: [...notes, ...staged.notes],
+      suggestions: staged.suggestions,
+      breakouts: staged.breakouts,
+      chart: staged.chart,
+      trends: staged.trends,
     };
   }
 
@@ -183,10 +184,17 @@ export async function runRisingTrends(
   }
 
   notes.push(`TikTok handles from ${provider} for the five suggested topics.`);
+  notes.push(...staged.notes);
+
+  for (const h of staged.chart) {
+    if (seen.has(normHandle(h.channelId))) continue;
+    seen.add(normHandle(h.channelId));
+    chart.push(h);
+  }
 
   const breakouts = chart.filter((h) => h.breakout).sort((a, b) => b.viewsPerSub - a.viewsPerSub);
   const grouped = new Map<string, RisingHit[]>();
-  for (const topic of suggested.topics) grouped.set(topic, []);
+  for (const topic of [...suggested.topics, ...staged.suggestions]) grouped.set(topic, []);
   for (const h of chart) {
     const label = h.tags[0] || "tiktok";
     const list = grouped.get(label) ?? [];
@@ -199,7 +207,7 @@ export async function runRisingTrends(
     createdAt: new Date().toISOString(),
     apiUnitsUsed: suggested.units,
     notes,
-    suggestions: suggested.topics,
+    suggestions: [...new Set([...staged.suggestions, ...suggested.topics])].slice(0, 8),
     breakouts,
     chart,
     trends,

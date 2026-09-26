@@ -20,7 +20,6 @@ export const PRENEW_BRAND: BrandProfile = {
     "pelikone",
     "kunnostettu",
     "gebraucht",
-    "refurbished",
     "gaming-pc",
     "grafikkarte",
     "usato",
@@ -73,22 +72,90 @@ export const PRENEW_BRAND: BrandProfile = {
   },
 };
 
+const STOP = new Set([
+  "the",
+  "and",
+  "for",
+  "with",
+  "from",
+  "that",
+  "this",
+  "your",
+  "you",
+  "our",
+  "are",
+  "was",
+  "without",
+  "plus",
+  "into",
+  "about",
+  "their",
+  "them",
+  "have",
+  "has",
+  "been",
+  "will",
+  "just",
+  "more",
+  "than",
+  "then",
+  "also",
+  "very",
+  "make",
+  "made",
+  "using",
+  "used",
+]);
+
+export function parseBrandList(raw: string | string[] | undefined) {
+  const parts = Array.isArray(raw) ? raw : (raw ?? "").split(/[,;\n]+/);
+  return [...new Set(parts.map((s) => s.trim()).filter((s) => s.length > 1))];
+}
+
+export function tokensFromText(text: string) {
+  return [...new Set(
+    text
+      .toLowerCase()
+      .split(/[^a-z0-9äöåàâçéèêëîïôùûüáíóúñ]+/i)
+      .map((w) => w.trim())
+      .filter((w) => w.length > 3 && !STOP.has(w)),
+  )];
+}
+
+export function isPrenewBrand(brand: BrandProfile) {
+  return brand.name.trim().toLowerCase() === "prenew";
+}
+
+/** Other advertiser names skip Prenew copy. Empty / Prenew → hackathon demo brand. */
 export function mergeBrand(partial?: Partial<BrandProfile>): BrandProfile {
+  const name = (partial?.name ?? "").trim();
+  const custom = Boolean(name && name.toLowerCase() !== "prenew");
+  if (!custom) {
+    const pitch = (partial?.pitch ?? "").trim();
+    const fromWish = tokensFromText(pitch);
+    const refs = parseBrandList(partial?.goodFitWords);
+    const rivals = parseBrandList(partial?.competitors);
+    return {
+      ...PRENEW_BRAND,
+      name: "Prenew",
+      pitch: pitch || PRENEW_BRAND.pitch,
+      goodFitWords: [...new Set([...PRENEW_BRAND.goodFitWords, ...fromWish, ...refs])],
+      competitors: rivals.length ? rivals : PRENEW_BRAND.competitors,
+      riskWords: partial?.riskWords?.length ? partial.riskWords : PRENEW_BRAND.riskWords,
+      disclosureTags: { ...PRENEW_BRAND.disclosureTags, ...partial?.disclosureTags },
+    };
+  }
+
   const pitch = (partial?.pitch ?? "").trim();
-  const fromWish = pitch
-    ? pitch
-        .toLowerCase()
-        .split(/[^a-z0-9]+/i)
-        .filter((w) => w.length > 3)
-    : [];
-  const baseWords = pitch ? fromWish : PRENEW_BRAND.goodFitWords;
+  const references = parseBrandList(partial?.goodFitWords);
+  const rivals = parseBrandList(partial?.competitors);
+  const fromCopy = tokensFromText(`${name} ${pitch} ${references.join(" ")}`);
   return {
-    ...PRENEW_BRAND,
-    ...partial,
-    pitch: pitch || PRENEW_BRAND.pitch,
-    goodFitWords: [...new Set([...(partial?.goodFitWords ?? baseWords), ...fromWish])],
-    competitors: partial?.competitors ?? PRENEW_BRAND.competitors,
-    riskWords: partial?.riskWords ?? PRENEW_BRAND.riskWords,
+    name,
+    pitch: pitch || `${name} creator collaborations`,
+    goodFitWords: [...new Set([...references, ...fromCopy])],
+    competitors: rivals,
+    riskWords: partial?.riskWords?.length ? partial.riskWords : PRENEW_BRAND.riskWords,
     disclosureTags: { ...PRENEW_BRAND.disclosureTags, ...partial?.disclosureTags },
   };
 }

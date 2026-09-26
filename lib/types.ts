@@ -1,5 +1,5 @@
 export type SizeTier = "nano" | "micro" | "mid" | "macro";
-export type Platform = "youtube" | "tiktok" | "instagram";
+export type Platform = "youtube" | "tiktok" | "instagram" | "facebook" | "twitch";
 export type AccountSource = "api" | "linked" | "extension" | "opt_in" | "provider" | "sample" | "web";
 export type AudienceAge = "kids" | "teen" | "adult" | "mixed";
 
@@ -89,6 +89,8 @@ export type DiscoverRequest = {
   workspaceId?: string | null;
   /** Off by default. Sheet is collab history, not live discovery. */
   includePrenewCollabs?: boolean;
+  /** Demo catalog of fictional TT/IG/FB/Twitch creators. Default on. */
+  includePresetCatalog?: boolean;
   /** When true, drop YouTube channels that don’t look like the selected country. */
   localOnly?: boolean;
 };

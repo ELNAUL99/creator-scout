@@ -30,6 +30,7 @@ export async function lensCaptureCreators(req: DiscoverRequest): Promise<ScoredC
         source: "extension",
         url: r.url,
         handle: r.handle,
+        brand: req.brand,
       });
       creator.reasons = [
         "Scout Lens capture from a profile you opened in the browser (visible fields only).",

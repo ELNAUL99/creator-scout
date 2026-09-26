@@ -82,6 +82,7 @@ export async function discoverViaSearchIndex(req: DiscoverRequest): Promise<{ cr
             source,
             url: hit.url,
             handle: hit.platform === "tiktok" ? `@${hit.handle}` : hit.handle,
+            brand: req.brand,
           }),
         );
       }

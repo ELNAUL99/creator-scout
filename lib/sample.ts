@@ -380,6 +380,8 @@ export function sampleDiscover(brief: string, markets: string[], nicheIds?: stri
       recent: scored.components.recentActivity,
       hiddenGem: scored.hiddenGem,
       marketLanguage: true,
+      brandName: brand.name,
+      prenew: brand.name.trim().toLowerCase() === "prenew",
     });
     const title = s.titles[0];
     const accounts: CreatorAccount[] = [

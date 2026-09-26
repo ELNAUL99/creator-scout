@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { loadActiveBrand } from "@/lib/brandStore";
 import { saveLensCapture } from "@/lib/lensStore";
 import { scoreVisibleProfile } from "@/lib/scoreProfile";
-import type { Platform } from "@/lib/types";
+import type { BrandProfile, Platform } from "@/lib/types";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -28,9 +29,17 @@ export async function POST(req: Request) {
     url?: string;
     handle?: string;
     briefTerms?: string[];
+    brand?: Partial<BrandProfile>;
   };
-  const platform: Platform = body.platform === "tiktok" || body.platform === "youtube" ? body.platform : "instagram";
+  const platform: Platform =
+    body.platform === "tiktok" ||
+    body.platform === "youtube" ||
+    body.platform === "facebook" ||
+    body.platform === "twitch"
+      ? body.platform
+      : "instagram";
   const handle = (body.handle ?? body.name ?? "creator").replace(/^@/, "");
+  const brand = body.brand ?? (await loadActiveBrand()) ?? undefined;
   const creator = scoreVisibleProfile({
     name: body.name ?? handle,
     platform,
@@ -42,10 +51,11 @@ export async function POST(req: Request) {
     views: body.views ?? 1,
     country: body.country ?? null,
     market: body.market ?? "FI",
-    briefTerms: body.briefTerms?.length ? body.briefTerms : ["budget", "gaming", "pc", "refurbished"],
+    briefTerms: body.briefTerms?.length ? body.briefTerms : (brand?.goodFitWords?.slice(0, 8) ?? ["budget", "gaming", "pc", "refurbished"]),
     source: "extension",
     url: body.url ?? "",
     handle: platform === "tiktok" ? `@${handle}` : handle,
+    brand,
   });
   await saveLensCapture({
     name: creator.displayName,
