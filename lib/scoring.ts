@@ -123,7 +123,7 @@ export function detectFlags(opts: {
   return flags;
 }
 
-export function suggestedDeal(tier: SizeTier, brandFit: number, prenew = true) {
+export function suggestedDeal(tier: SizeTier, brandFit: number, prenew = false) {
   if ((tier === "nano" || tier === "micro") && brandFit >= 75) {
     return prenew ? "Product to review + affiliate code" : "Product seed + affiliate code";
   }

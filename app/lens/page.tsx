@@ -19,10 +19,10 @@ type ScoreResult = {
 };
 
 export default function LensPage() {
-  const [name, setName] = useState("SetupKid");
-  const [bio, setBio] = useState("Budget PC builds, used GPUs, student setups. tiktok.com/@setupkid");
-  const [captions, setCaptions] = useState("Refurbished 4070 build under €700\nIs a used GPU worth it in 2026?");
-  const [followers, setFollowers] = useState("22000");
+  const [name, setName] = useState("");
+  const [bio, setBio] = useState("");
+  const [captions, setCaptions] = useState("");
+  const [followers, setFollowers] = useState("");
   const [brandName, setBrandName] = useState("");
   const [brandBusiness, setBrandBusiness] = useState("");
   const [brandRefs, setBrandRefs] = useState("");
@@ -36,7 +36,7 @@ export default function LensPage() {
       .then((r) => r.json())
       .then((d: { brand?: { name?: string; pitch?: string; goodFitWords?: string[]; competitors?: string[] } }) => {
         const b = d.brand;
-        if (!b || !b.name || b.name.toLowerCase() === "prenew") return;
+        if (!b?.name) return;
         setBrandName(b.name);
         if (b.pitch) setBrandBusiness(b.pitch);
         if (b.goodFitWords?.length) setBrandRefs(b.goodFitWords.join(", "));
@@ -113,8 +113,8 @@ export default function LensPage() {
           <div>
             <h2 className="text-sm font-medium">Brand to score against</h2>
             <p className="text-xs text-muted mt-1">
-              Leave blank for the Prenew demo (refurbished gaming PCs). The extension uses the last brand you
-              save here.
+              Optional. Leave blank to score the profile on niche, engagement, and risk only. The extension uses
+              the last brand you save here.
             </p>
           </div>
           <label className="block text-sm">
@@ -123,7 +123,7 @@ export default function LensPage() {
               className="mt-1.5 w-full field p-2.5 text-sm"
               value={brandName}
               onChange={(e) => setBrandName(e.target.value)}
-              placeholder="Prenew, Glossier, …"
+              placeholder="Your brand name"
             />
           </label>
           <label className="block text-sm">
@@ -171,6 +171,7 @@ export default function LensPage() {
               className="mt-1.5 w-full field p-2.5 text-sm"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              placeholder="Creator display name"
             />
           </label>
 
@@ -183,6 +184,7 @@ export default function LensPage() {
               className="mt-1.5 w-full field p-2.5 text-sm min-h-[72px]"
               value={bio}
               onChange={(e) => setBio(e.target.value)}
+              placeholder="Public bio / about text"
             />
           </label>
 
@@ -195,6 +197,7 @@ export default function LensPage() {
               className="mt-1.5 w-full field p-2.5 text-sm min-h-[88px]"
               value={captions}
               onChange={(e) => setCaptions(e.target.value)}
+              placeholder="One recent caption per line"
             />
           </label>
 

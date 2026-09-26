@@ -1,4 +1,4 @@
-import { PRENEW_BRAND } from "./brand";
+import { GENERIC_BRAND } from "./brand";
 import type { BrandProfile } from "./types";
 
 const TEMPLATES: Record<string, (p: MsgParams) => string> = {
@@ -47,7 +47,7 @@ type MsgParams = {
   tag: string;
 };
 
-export function affiliateCode(name: string, brandName = "PRENEW") {
+export function affiliateCode(name: string, brandName = "BRAND") {
   const brand = brandName.replace(/[^A-Za-z0-9]/g, "").slice(0, 10).toUpperCase() || "BRAND";
   const slug = name.replace(/[^A-Za-z0-9]/g, "").slice(0, 10).toUpperCase() || "CREATOR";
   return `${brand}-${slug}`;
@@ -60,14 +60,17 @@ export function draftMessage(opts: {
   deal: string;
   brand?: BrandProfile;
 }) {
-  const brand = opts.brand ?? PRENEW_BRAND;
+  const brand = opts.brand ?? GENERIC_BRAND;
   const prenew = brand.name.trim().toLowerCase() === "prenew";
   const lang = prenew && TEMPLATES[opts.language] ? opts.language : "en";
-  const tag = brand.disclosureTags[lang] ?? brand.disclosureTags.en;
+  const tag = brand.disclosureTags[lang] ?? brand.disclosureTags.en ?? "#ad";
   const pitch = brand.pitch.replace(/\s+/g, " ").slice(0, 140);
   const code = affiliateCode(opts.name, brand.name);
   if (!prenew) {
-    return `Hi ${opts.name} — I liked “${opts.title.slice(0, 80)}”. I'm reaching out from ${brand.name} (${pitch}) about a collaboration that fits your audience. Suggested: ${opts.deal}. Your code: ${code}. ${tag}`;
+    const from = brand.name
+      ? `I'm reaching out from ${brand.name}${pitch ? ` (${pitch})` : ""}`
+      : `I'm reaching out about a collaboration${pitch ? ` (${pitch})` : ""}`;
+    return `Hi ${opts.name} — I liked “${opts.title.slice(0, 80)}”. ${from} that fits your audience. Suggested: ${opts.deal}. Your code: ${code}. ${tag}`;
   }
   return TEMPLATES[lang]({
     name: opts.name,
@@ -97,9 +100,9 @@ export function ruleReasons(opts: {
   if (opts.engagement >= 70) reasons.push("Engagement is strong relative to this size tier.");
   if (opts.brand >= 75) {
     reasons.push(
-      opts.prenew !== false
+      opts.prenew
         ? "Content already talks budget, used, or PC building — natural brand fit."
-        : `Content already overlaps what ${opts.brandName ?? "this brand"} talks about.`,
+        : `Content already overlaps what ${opts.brandName?.trim() || "this brief"} talks about.`,
     );
   }
   if (opts.recent >= 80) reasons.push("Posted in the last month, so outreach is timely.");

@@ -407,9 +407,9 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
     if (llmAvailable()) {
       for (const c of top) {
         const fit = await llmFit({
-          brandName: brand.name,
-          pitch: brand.pitch,
-          goodWords: brand.goodFitWords,
+          brandName: brand.name || "an advertiser",
+          pitch: brand.pitch || req.brief,
+          goodWords: brand.goodFitWords.length ? brand.goodFitWords : terms.slice(0, 12),
           competitors: brand.competitors,
           riskWords: brand.riskWords,
           name: c.displayName,

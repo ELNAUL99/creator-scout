@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import CheckDropdown from "@/components/CheckDropdown";
 import { LegalNav, SiteFooter } from "@/components/Legal";
+import { affiliateCode } from "@/lib/messages";
 import { matchesSelectedCountries } from "@/lib/localeMatch";
 import { followersMatchSize } from "@/lib/sizeRange";
 import { MARKET_REGIONS, MARKETS } from "@/lib/markets";
@@ -67,7 +68,7 @@ function toCsv(rows: ScoredCreator[]) {
         c.flags.join("; "),
         c.suggestedDeal,
         c.contactRoute,
-        `PRENEW-${c.displayName.replace(/[^A-Za-z0-9]/g, "").slice(0, 10).toUpperCase()}`,
+        affiliateCode(c.displayName),
         c.messageDraft,
         c.dataSource,
         c.dataDate,
@@ -158,12 +159,21 @@ export default function ScoutApp() {
         }
       }
       if (!noStats && markets.length && !includeOtherCountries) {
-        const text = `${c.displayName} ${c.recentContent.map((p) => p.titleOrCaption).join(" ")}`;
+        const searched = (c.searchedMarket ?? "").toUpperCase();
+        // Server already kept this row for the selected market (language or ISO).
+        // Do not re-check YouTube's often-wrong channel.country — that hid 3 of 4.
+        if (searched && searched !== "WW" && markets.some((m) => m.toUpperCase() === searched)) {
+          return true;
+        }
+        const text = `${c.displayName} ${c.languages.join(" ")} ${c.recentContent.map((p) => p.titleOrCaption).join(" ")}`;
         const market = MARKETS.find((m) => m.code === c.searchedMarket);
         const local = matchesSelectedCountries(c.country, markets, {
           language: market?.language ?? c.languages[0] ?? "en",
           text,
-          videoLanguages: c.recentContent.map((p) => p.language).filter(Boolean) as string[],
+          videoLanguages: [
+            ...c.languages,
+            ...c.recentContent.map((p) => p.language).filter(Boolean),
+          ] as string[],
         });
         if (!local) {
           hiddenCountry += 1;
@@ -346,11 +356,12 @@ export default function ScoutApp() {
               rows={3}
               value={brandWish}
               onChange={(e) => setBrandWish(e.target.value)}
-              placeholder="e.g. practical PC builders, not luxury unboxings"
+              placeholder="e.g. honest reviews, weekly recaps, not luxury unboxings"
               className="w-full field p-2 text-sm"
             />
             <p className="text-xs text-muted">
-              Enough for search. Brand name, business, and references for a real fit score live on Scout Lens.
+              Search uses this plus the niche. Brand name and fit scoring live on Scout Lens when you have an
+              advertiser in mind.
             </p>
           </div>
           <div className="space-y-2">

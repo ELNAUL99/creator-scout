@@ -87,7 +87,9 @@ export async function POST(req: Request) {
       followers: creator.followers,
       tier: creator.tier,
       source: "extension",
-      coverage: `Scout Lens scored this profile for ${brand.name}. One at a time, your session. It does not crawl.`,
+      coverage: brand.name
+        ? `Scout Lens scored this profile for ${brand.name}. One at a time, your session. It does not crawl.`
+        : "Scout Lens scored this public profile for creator fit (niche, engagement, risk). Add a brand name for advertiser-specific fit.",
     },
     { headers: CORS },
   );

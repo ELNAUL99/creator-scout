@@ -1,5 +1,51 @@
 import type { BrandProfile } from "./types";
 
+/** Shared risk flags — not tied to one advertiser. */
+export const COMMON_RISK_WORDS = [
+  "gambling",
+  "betting",
+  "casino",
+  "odds",
+  "crypto giveaway",
+  "nft giveaway",
+  "stake.com",
+  "lootbox gambling",
+  "uhkapeli",
+  "vedonlyönti",
+  "glücksspiel",
+  "wetten",
+];
+
+export const COMMON_DISCLOSURE_TAGS: Record<string, string> = {
+  fi: "#kaupallinenyhteistyö",
+  sv: "#reklam",
+  de: "#Werbung",
+  ja: "#PR",
+  ko: "#광고",
+  en: "#ad",
+  es: "#publi",
+  pt: "#publi",
+  fr: "#publicité",
+  it: "#adv",
+  nl: "#ad",
+  no: "#reklame",
+  da: "#reklame",
+  et: "#reklaam",
+  pl: "#współpraca",
+  tr: "#reklam",
+  vi: "#quảngcáo",
+};
+
+/** Used when search/Lens has no advertiser name — niche + brief only. */
+export const GENERIC_BRAND: BrandProfile = {
+  name: "",
+  pitch: "",
+  goodFitWords: [],
+  competitors: [],
+  riskWords: COMMON_RISK_WORDS,
+  disclosureTags: COMMON_DISCLOSURE_TAGS,
+};
+
 export const PRENEW_BRAND: BrandProfile = {
   name: "Prenew",
   pitch:
@@ -37,39 +83,8 @@ export const PRENEW_BRAND: BrandProfile = {
     "gazelle",
     "musicmagpie",
   ],
-  riskWords: [
-    "gambling",
-    "betting",
-    "casino",
-    "odds",
-    "crypto giveaway",
-    "nft giveaway",
-    "stake.com",
-    "lootbox gambling",
-    "uhkapeli",
-    "vedonlyönti",
-    "glücksspiel",
-    "wetten",
-  ],
-  disclosureTags: {
-    fi: "#kaupallinenyhteistyö",
-    sv: "#reklam",
-    de: "#Werbung",
-    ja: "#PR",
-    ko: "#광고",
-    en: "#ad",
-    es: "#publi",
-    pt: "#publi",
-    fr: "#publicité",
-    it: "#adv",
-    nl: "#ad",
-    no: "#reklame",
-    da: "#reklame",
-    et: "#reklaam",
-    pl: "#współpraca",
-    tr: "#reklam",
-    vi: "#quảngcáo",
-  },
+  riskWords: COMMON_RISK_WORDS,
+  disclosureTags: COMMON_DISCLOSURE_TAGS,
 };
 
 const STOP = new Set([
@@ -126,36 +141,48 @@ export function isPrenewBrand(brand: BrandProfile) {
   return brand.name.trim().toLowerCase() === "prenew";
 }
 
-/** Other advertiser names skip Prenew copy. Empty / Prenew → hackathon demo brand. */
+/**
+ * Empty name → generic advertiser (niche/brief only).
+ * Name “Prenew” → hackathon demo brand. Any other name → that advertiser.
+ */
 export function mergeBrand(partial?: Partial<BrandProfile>): BrandProfile {
   const name = (partial?.name ?? "").trim();
-  const custom = Boolean(name && name.toLowerCase() !== "prenew");
-  if (!custom) {
-    const pitch = (partial?.pitch ?? "").trim();
-    const fromWish = tokensFromText(pitch);
-    const refs = parseBrandList(partial?.goodFitWords);
-    const rivals = parseBrandList(partial?.competitors);
+  const pitch = (partial?.pitch ?? "").trim();
+  const fromWish = tokensFromText(pitch);
+  const refs = parseBrandList(partial?.goodFitWords);
+  const rivals = parseBrandList(partial?.competitors);
+  const riskWords = partial?.riskWords?.length ? partial.riskWords : COMMON_RISK_WORDS;
+  const disclosureTags = { ...COMMON_DISCLOSURE_TAGS, ...partial?.disclosureTags };
+
+  if (name.toLowerCase() === "prenew") {
     return {
       ...PRENEW_BRAND,
-      name: "Prenew",
       pitch: pitch || PRENEW_BRAND.pitch,
       goodFitWords: [...new Set([...PRENEW_BRAND.goodFitWords, ...fromWish, ...refs])],
       competitors: rivals.length ? rivals : PRENEW_BRAND.competitors,
-      riskWords: partial?.riskWords?.length ? partial.riskWords : PRENEW_BRAND.riskWords,
-      disclosureTags: { ...PRENEW_BRAND.disclosureTags, ...partial?.disclosureTags },
+      riskWords,
+      disclosureTags,
     };
   }
 
-  const pitch = (partial?.pitch ?? "").trim();
-  const references = parseBrandList(partial?.goodFitWords);
-  const rivals = parseBrandList(partial?.competitors);
-  const fromCopy = tokensFromText(`${name} ${pitch} ${references.join(" ")}`);
+  if (!name) {
+    return {
+      ...GENERIC_BRAND,
+      pitch,
+      goodFitWords: [...new Set([...fromWish, ...refs])],
+      competitors: rivals,
+      riskWords,
+      disclosureTags,
+    };
+  }
+
+  const fromCopy = tokensFromText(`${name} ${pitch} ${refs.join(" ")}`);
   return {
     name,
     pitch: pitch || `${name} creator collaborations`,
-    goodFitWords: [...new Set([...references, ...fromCopy])],
+    goodFitWords: [...new Set([...refs, ...fromCopy])],
     competitors: rivals,
-    riskWords: partial?.riskWords?.length ? partial.riskWords : PRENEW_BRAND.riskWords,
-    disclosureTags: { ...PRENEW_BRAND.disclosureTags, ...partial?.disclosureTags },
+    riskWords,
+    disclosureTags,
   };
 }
