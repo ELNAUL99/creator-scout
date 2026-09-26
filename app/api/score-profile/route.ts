@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { saveLensCapture } from "@/lib/lensStore";
 import { scoreVisibleProfile } from "@/lib/scoreProfile";
 import type { Platform } from "@/lib/types";
 
@@ -43,6 +44,19 @@ export async function POST(req: Request) {
     market: body.market ?? "FI",
     briefTerms: body.briefTerms?.length ? body.briefTerms : ["budget", "gaming", "pc", "refurbished"],
     source: "extension",
+    url: body.url ?? "",
+    handle: platform === "tiktok" ? `@${handle}` : handle,
+  });
+  await saveLensCapture({
+    name: creator.displayName,
+    platform,
+    bio: body.bio ?? "",
+    captions: body.captions ?? [],
+    followers: body.followers ?? 0,
+    likes: body.likes ?? 0,
+    comments: body.comments ?? 0,
+    views: body.views ?? 1,
+    country: body.country ?? null,
     url: body.url ?? "",
     handle: platform === "tiktok" ? `@${handle}` : handle,
   });

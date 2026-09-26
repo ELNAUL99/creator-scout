@@ -7,6 +7,8 @@ import { draftMessage, hoursSaved, ruleReasons } from "./messages";
 import { dictionaryTerms, isNicheId, looksLikePcHardware, nichesFromBrief, shouldExcludePcHardware } from "./niches";
 import { sampleDiscover } from "./sample";
 import { scoreCreator, TIER_BENCHMARK } from "./scoring";
+import { connectedOptInCreators } from "./optInCreators";
+import { lensCaptureCreators } from "./lensCreators";
 import { prenewCollabCreators } from "./prenewCollabs";
 import { filterCreatorsBySize, followersMatchSize } from "./sizeRange";
 import { discoverViaSearchIndex } from "./webDiscover";
@@ -19,26 +21,91 @@ function youtubeKey(reqKey?: string) {
   return fromEnv || fromReq || "";
 }
 
-async function attachWebDiscovery(req: DiscoverRequest, result: DiscoverResponse): Promise<DiscoverResponse> {
-  const collabs = prenewCollabCreators(req);
-  let creators = result.creators;
-  let notes = result.notes;
-  if (req.webDiscover !== false) {
+function mergeCreators(base: ScoredCreator[], extra: ScoredCreator[]) {
+  const ids = new Set(base.map((c) => c.id.toLowerCase()));
+  const names = new Set(base.map((c) => c.displayName.toLowerCase()));
+  for (const c of extra) {
+    if (ids.has(c.id.toLowerCase()) || names.has(c.displayName.toLowerCase())) continue;
+    base.push(c);
+    ids.add(c.id.toLowerCase());
+    names.add(c.displayName.toLowerCase());
+  }
+  return base;
+}
+
+function termsForMarkets(req: DiscoverRequest): MarketTerms[] {
+  const fromIds = [...(req.nicheIds ?? []), req.nicheId ?? ""].filter(isNicheId);
+  const niches = fromIds.length ? fromIds : nichesFromBrief(req.brief);
+  return req.markets.map((code) => {
+    const market = getMarket(code);
+    return {
+      country: code,
+      language: market.language,
+      terms: dictionaryTerms(niches, market.language),
+      niche: niches[0],
+      source: "dictionary" as const,
+    };
+  });
+}
+
+function emptyLive(req: DiscoverRequest, notes: string[]): DiscoverResponse {
+  return {
+    runId: `live-${Date.now()}`,
+    brief: req.brief,
+    createdAt: new Date().toISOString(),
+    mode: "live",
+    termsPerMarket: termsForMarkets(req),
+    creators: [],
+    apiUnitsUsed: 0,
+    hoursSavedEstimate: 0,
+    notes,
+  };
+}
+
+async function attachLiveSources(req: DiscoverRequest, result: DiscoverResponse): Promise<DiscoverResponse> {
+  let creators = [...result.creators];
+  let notes = [...result.notes];
+  const platforms = req.platforms?.length ? req.platforms : ["youtube", "tiktok", "instagram"];
+
+  if (req.webDiscover !== false && (platforms.includes("tiktok") || platforms.includes("instagram"))) {
     const web = await discoverViaSearchIndex(req);
-    creators = [...creators, ...web.creators];
+    creators = mergeCreators(creators, web.creators);
     notes = [...notes, ...web.notes];
   }
-  if (collabs.length) {
-    const seen = new Set(creators.map((c) => c.displayName.toLowerCase()));
-    for (const c of collabs) {
-      if (!seen.has(c.displayName.toLowerCase())) creators.push(c);
-    }
-    notes = [
-      ...notes,
-      "Includes Prenew’s own collaboration history for this market/niche (country, subs/followers, avg views, game/tech niche). Not scraped from TikTok/Instagram.",
-    ];
+
+  const connected = await connectedOptInCreators(req);
+  if (connected.length) {
+    creators = mergeCreators(creators, connected);
+    notes.push(
+      `Included ${connected.length} creator(s) from official TikTok/Instagram connect (your workspace), scored against this brief.`,
+    );
+  } else if (platforms.includes("tiktok") || platforms.includes("instagram")) {
+    notes.push(
+      "No connected TikTok/Instagram accounts in this workspace yet. Use Connect on /opt-in — Login Kit / Instagram Login only returns the account that signed in, not a crawl of other profiles.",
+    );
   }
+
+  const lens = await lensCaptureCreators(req);
+  if (lens.length) {
+    creators = mergeCreators(creators, lens);
+    notes.push(`Included ${lens.length} Scout Lens capture(s) from profiles you opened in the browser.`);
+  }
+
+  if (req.includePrenewCollabs) {
+    const collabs = prenewCollabCreators(req);
+    const before = creators.length;
+    creators = mergeCreators(creators, collabs);
+    if (creators.length > before) {
+      notes.push(
+        "Also listing Prenew collab-sheet names you ticked on. That sheet is first-party history, not live platform research.",
+      );
+    }
+  }
+
   creators = filterCreatorsBySize(creators, req.sizeMin, req.sizeMax).sort((a, b) => b.fit - a.fit);
+  notes.unshift(
+    "Live sources: YouTube Data API v3 (when the key works), connected TikTok/Instagram, Scout Lens, optional site: search. The collab spreadsheet is not used unless you opt in.",
+  );
   return {
     ...result,
     creators,
@@ -50,31 +117,39 @@ async function attachWebDiscovery(req: DiscoverRequest, result: DiscoverResponse
 export async function runDiscover(req: DiscoverRequest): Promise<DiscoverResponse> {
   const mode = req.mode ?? "auto";
   const key = youtubeKey(req.youtubeApiKey);
-  if (mode === "sample" || (mode === "auto" && !key)) {
-    return attachWebDiscovery(req, sampleDiscover(req.brief, req.markets, req.nicheIds));
-  }
-  if (!key) {
-    throw new Error(
-      "Live YouTube needs an API key. Paste it in the form, or add YOUTUBE_API_KEY to .env.local and restart the dev server.",
-    );
+  const wantYt = (req.platforms ?? ["youtube"]).includes("youtube");
+
+  if (mode === "sample") {
+    return attachLiveSources(req, sampleDiscover(req.brief, req.markets, req.nicheIds));
   }
 
-  try {
-    return await attachWebDiscovery(req, await runLiveDiscover(req, key));
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    if (/blocked search\.list|V3DataSearchService\.List are blocked/i.test(message)) {
-      const sample = sampleDiscover(req.brief, req.markets, req.nicheIds);
-      sample.notes = [
-        "YouTube search.list is blocked on this API key — live discovery cannot run until Google Cloud allows it.",
-        "Enable YouTube Data API v3, set API restrictions to YouTube Data API v3 or Don't restrict key, and set Application restrictions to None (or IP) for this local server.",
-        "Showing labelled SAMPLE results so the workflow still works.",
-        ...sample.notes,
-      ];
-      return attachWebDiscovery(req, sample);
+  if (wantYt && key) {
+    try {
+      return await attachLiveSources(req, await runLiveDiscover(req, key));
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      if (/blocked search\.list|V3DataSearchService\.List are blocked/i.test(message)) {
+        return attachLiveSources(
+          req,
+          emptyLive(req, [
+            "YouTube search.list is blocked on this API key — live YouTube discovery cannot run until Google Cloud allows it.",
+            "Enable YouTube Data API v3, API restrictions = YouTube Data API v3 (or unrestricted), Application restrictions = None (or IP) for this server.",
+            "Not substituting the collab sheet or sample channels. Connected TikTok/Instagram, Lens, and site: search still run.",
+          ]),
+        );
+      }
+      throw e;
     }
-    throw e;
   }
+
+  const notes: string[] = [];
+  if (wantYt && !key) {
+    notes.push(
+      "No YOUTUBE_API_KEY — YouTube Data API search was skipped. Add the key (the one you fetched) to .env.local / Vercel and restart.",
+    );
+  }
+  if (!wantYt) notes.push("YouTube is unchecked, so YouTube Data API was not queried.");
+  return attachLiveSources(req, emptyLive(req, notes));
 }
 
 async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<DiscoverResponse> {
@@ -117,7 +192,7 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
       regionCode: market.ytRegion,
       relevanceLanguage: market.language,
       publishedAfter,
-      maxResults: 25,
+      maxResults: 50,
     });
     units += search.units;
 

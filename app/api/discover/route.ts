@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getCurrentWorkspaceId } from "@/lib/auth";
 import { NICHE_TERMS, isNicheId } from "@/lib/niches";
 import { runDiscover } from "@/lib/pipeline";
 import type { DiscoverRequest } from "@/lib/types";
@@ -11,6 +12,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "niche and markets are required" }, { status: 400 });
     }
     const brief = nicheIds.map((id) => NICHE_TERMS[id].label).join(", ");
+    const workspaceId = await getCurrentWorkspaceId();
     const result = await runDiscover({
       brief,
       markets: body.markets.slice(0, 8),
@@ -26,6 +28,8 @@ export async function POST(req: Request) {
       mode: body.mode ?? "auto",
       youtubeApiKey: body.youtubeApiKey,
       webDiscover: body.webDiscover !== false,
+      includePrenewCollabs: Boolean(body.includePrenewCollabs),
+      workspaceId,
     });
     return NextResponse.json(result);
   } catch (e) {

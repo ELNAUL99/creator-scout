@@ -103,6 +103,7 @@ export default function ScoutApp() {
   const [searchConfigured, setSearchConfigured] = useState(false);
   const [instagramConfigured, setInstagramConfigured] = useState(false);
   const [webDiscover, setWebDiscover] = useState(true);
+  const [includePrenewCollabs, setIncludePrenewCollabs] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<DiscoverResponse | null>(null);
@@ -203,6 +204,7 @@ export default function ScoutApp() {
           platforms,
           mode: "auto",
           webDiscover,
+          includePrenewCollabs,
         }),
       });
       const data = await res.json();
@@ -462,15 +464,27 @@ export default function ScoutApp() {
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={webDiscover} onChange={(e) => setWebDiscover(e.target.checked)} />
-            Find TikTok / Instagram via site: search
+            Find extra TikTok / Instagram handles via site: search
           </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={includePrenewCollabs}
+              onChange={(e) => setIncludePrenewCollabs(e.target.checked)}
+            />
+            Also list Prenew collab-sheet names (not live API)
+          </label>
+          <p className="text-xs text-muted">
+            Discovery uses YouTube Data API for channels, official TikTok/Instagram connect for accounts you logged in,
+            and Scout Lens captures. The spreadsheet is history only if you tick the box above.
+          </p>
           <p className="text-xs text-muted">
             {searchConfigured
               ? "Search API is set. Queries like site:tiktok.com “pelikone” return indexed public profiles."
-              : "Add GOOGLE_CSE_KEY + GOOGLE_CSE_CX (or BRAVE_SEARCH_API_KEY) to .env.local for live handles. Or load Scout Lens on a profile."}
+              : "Add GOOGLE_CSE_KEY + GOOGLE_CSE_CX (or BRAVE_SEARCH_API_KEY) to .env.local for extra TT/IG handles."}
             {instagramConfigured
-              ? " Instagram Graph Business Discovery is on."
-              : " Optional: INSTAGRAM_GRAPH_TOKEN + INSTAGRAM_BUSINESS_ID for live IG follower/post stats."}
+              ? " Instagram Graph Business Discovery is on for public IG usernames."
+              : " Optional: INSTAGRAM_GRAPH_TOKEN + INSTAGRAM_BUSINESS_ID for live IG stats on discovered handles."}
           </p>
           <p className="text-xs text-muted">
             Untick biggest names to keep the micro/mid shortlist. Search still finds them when the box is on.

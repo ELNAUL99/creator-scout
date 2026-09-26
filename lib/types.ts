@@ -85,6 +85,10 @@ export type DiscoverRequest = {
   mode?: "auto" | "sample" | "live";
   youtubeApiKey?: string;
   webDiscover?: boolean;
+  /** Logged-in workspace — used to load connected TikTok/Instagram opt-ins. */
+  workspaceId?: string | null;
+  /** Off by default. Sheet is collab history, not live discovery. */
+  includePrenewCollabs?: boolean;
 };
 
 export type MarketTerms = {
