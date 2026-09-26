@@ -64,7 +64,7 @@ export async function discoverViaSearchIndex(req: DiscoverRequest): Promise<{ cr
             source = "api";
           }
         }
-        if (!followersMatchSize(followers, req.sizeMin, req.sizeMax)) continue;
+        if (followers > 0 && !followersMatchSize(followers, req.sizeMin, req.sizeMax)) continue;
         creators.push(
           scoreVisibleProfile({
             name,
@@ -89,7 +89,7 @@ export async function discoverViaSearchIndex(req: DiscoverRequest): Promise<{ cr
   }
 
   notes.push(
-    `TikTok/Instagram handles from ${provider} site: queries (Google-indexed public profiles). We do not scrape TikTok or Instagram search.`,
+    `TikTok/Instagram handles from ${provider} site: queries (Google-indexed public profiles). Connecting your own TikTok/Instagram does not unlock a crawl of other accounts.`,
   );
   if (instagramConfigured()) {
     notes.push("Instagram follower/post stats via Graph API Business Discovery (free; needs a Meta app + IG business account).");

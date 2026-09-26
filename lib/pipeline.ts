@@ -8,9 +8,12 @@ import { dictionaryTerms, isNicheId, looksLikePcHardware, nichesFromBrief, shoul
 import { sampleDiscover } from "./sample";
 import { scoreCreator, TIER_BENCHMARK } from "./scoring";
 import { connectedOptInCreators } from "./optInCreators";
+import { getIgConnection } from "./igConnectionStore";
+import { businessDiscovery, envIgAuth } from "./instagram";
 import { lensCaptureCreators } from "./lensCreators";
 import { prenewCollabCreators } from "./prenewCollabs";
-import { filterCreatorsBySize, followersMatchSize } from "./sizeRange";
+import { scoreVisibleProfile } from "./scoreProfile";
+import { filterCreatorsBySize, followersMatchSize, sizeRangeActive } from "./sizeRange";
 import { discoverViaSearchIndex } from "./webDiscover";
 import type { CreatorAccount, DiscoverRequest, DiscoverResponse, MarketTerms, RecentPost, ScoredCreator } from "./types";
 import { fetchChannels, fetchVideos, searchRecentVideos, youtubeUrl, type YtChannel, type YtVideoHit, type YtVideoStats } from "./youtube";
@@ -62,10 +65,112 @@ function emptyLive(req: DiscoverRequest, notes: string[]): DiscoverResponse {
   };
 }
 
+async function expandSocialsFromYoutube(req: DiscoverRequest, fromYt: ScoredCreator[]) {
+  const extra: ScoredCreator[] = [];
+  const notes: string[] = [];
+  const wantIg = (req.platforms ?? []).includes("instagram");
+  const wantTt = (req.platforms ?? []).includes("tiktok");
+  if (!wantIg && !wantTt) return { extra, notes };
+
+  const conn = await getIgConnection(req.workspaceId ?? null);
+  const igAuth =
+    conn?.accessToken && conn.igUserId
+      ? { token: conn.accessToken, igUserId: conn.igUserId }
+      : envIgAuth();
+
+  let igLookedUp = 0;
+  const seen = new Set<string>();
+  for (const c of fromYt) {
+    for (const a of c.accounts) {
+      const handle = a.handle.replace(/^@/, "");
+      if (a.platform === "instagram" && wantIg) {
+        const key = `instagram:${handle.toLowerCase()}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const ig = igAuth ? await businessDiscovery(handle, igAuth) : null;
+        if (ig) igLookedUp += 1;
+        const followers = ig?.followers ?? 0;
+        if (followers > 0 && !followersMatchSize(followers, req.sizeMin, req.sizeMax)) continue;
+        if (followers <= 0 && sizeRangeActive(req.sizeMin, req.sizeMax)) continue;
+        extra.push(
+          scoreVisibleProfile({
+            name: ig?.name ?? handle,
+            platform: "instagram",
+            bio: ig?.biography ?? `Linked from YouTube channel ${c.displayName}`,
+            captions: ig?.captions?.length ? ig.captions : [`Found on YouTube: ${c.displayName}`],
+            followers,
+            likes: ig?.likes ?? 0,
+            comments: ig?.comments ?? 0,
+            views: Math.max((ig?.likes ?? 0) * 12, 1),
+            country: c.country,
+            market: c.searchedMarket,
+            language: c.languages[0],
+            briefTerms: [],
+            source: ig ? "api" : "linked",
+            url: `https://www.instagram.com/${handle}/`,
+            handle,
+          }),
+        );
+      }
+      if (a.platform === "tiktok" && wantTt) {
+        const key = `tiktok:${handle.toLowerCase()}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        if (sizeRangeActive(req.sizeMin, req.sizeMax)) continue;
+        extra.push(
+          scoreVisibleProfile({
+            name: handle,
+            platform: "tiktok",
+            bio: `Linked in YouTube description of ${c.displayName}. TikTok Login Kit cannot fetch other profiles.`,
+            captions: [`Found on YouTube: ${c.displayName}`],
+            followers: 0,
+            likes: 0,
+            comments: 0,
+            views: 1,
+            country: c.country,
+            market: c.searchedMarket,
+            language: c.languages[0],
+            briefTerms: [],
+            source: "linked",
+            url: `https://www.tiktok.com/@${handle}`,
+            handle: `@${handle}`,
+          }),
+        );
+      }
+    }
+  }
+  if (extra.length) {
+    notes.push(
+      `Added ${extra.length} TikTok/Instagram identit${extra.length === 1 ? "y" : "ies"} linked from YouTube channel text (not a TikTok/Instagram crawl).`,
+    );
+  }
+  if (wantIg && igAuth) {
+    notes.push(
+      igLookedUp
+        ? `Instagram Graph Business Discovery filled stats for ${igLookedUp} public username(s) using the connected IG professional account.`
+        : "Instagram is connected, but Business Discovery returned no stats (username must be a public professional/creator account).",
+    );
+  } else if (wantIg) {
+    notes.push(
+      "Connect Instagram (professional/creator) so we can look up other public IG usernames via Graph Business Discovery. Logging in does not scrape Instagram search.",
+    );
+  }
+  if (wantTt) {
+    notes.push(
+      "TikTok Login Kit only returns the account you signed in with. There is no official TikTok search/crawl for other creators — use Scout Lens on a profile, or site: search if a search API key is set.",
+    );
+  }
+  return { extra, notes };
+}
+
 async function attachLiveSources(req: DiscoverRequest, result: DiscoverResponse): Promise<DiscoverResponse> {
   let creators = [...result.creators];
   let notes = [...result.notes];
   const platforms = req.platforms?.length ? req.platforms : ["youtube", "tiktok", "instagram"];
+
+  const socials = await expandSocialsFromYoutube(req, creators);
+  creators = mergeCreators(creators, socials.extra);
+  notes = [...notes, ...socials.notes];
 
   if (req.webDiscover !== false && (platforms.includes("tiktok") || platforms.includes("instagram"))) {
     const web = await discoverViaSearchIndex(req);
@@ -81,7 +186,7 @@ async function attachLiveSources(req: DiscoverRequest, result: DiscoverResponse)
     );
   } else if (platforms.includes("tiktok") || platforms.includes("instagram")) {
     notes.push(
-      "No connected TikTok/Instagram accounts in this workspace yet. Use Connect on /opt-in — Login Kit / Instagram Login only returns the account that signed in, not a crawl of other profiles.",
+      "No connected TikTok/Instagram login in this workspace. Connect still only adds the account that signed in.",
     );
   }
 
@@ -104,7 +209,7 @@ async function attachLiveSources(req: DiscoverRequest, result: DiscoverResponse)
 
   creators = filterCreatorsBySize(creators, req.sizeMin, req.sizeMax).sort((a, b) => b.fit - a.fit);
   notes.unshift(
-    "Live sources: YouTube Data API v3 (when the key works), connected TikTok/Instagram, Scout Lens, optional site: search. The collab spreadsheet is not used unless you opt in.",
+    "YouTube is live API search. TikTok/Instagram connect is not a crawl of those networks. Other TT/IG names come from YouTube links, optional site: search, Scout Lens, or your own connected account.",
   );
   return {
     ...result,
@@ -360,7 +465,9 @@ function buildCreator(opts: {
     madeForKids,
     brand: opts.brand,
   });
-  const handles = extractHandles(channel.description);
+  const handles = extractHandles(
+    `${channel.description} ${channel.keywords ?? ""} ${stats.map((s) => `${s.title} ${s.description}`).join(" ")}`,
+  );
   const accounts: CreatorAccount[] = [
     {
       platform: "youtube",

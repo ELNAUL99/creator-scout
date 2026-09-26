@@ -477,8 +477,9 @@ export default function ScoutApp() {
             Also list Prenew collab-sheet names (not live API)
           </label>
           <p className="text-xs text-muted">
-            Discovery uses YouTube Data API for channels, official TikTok/Instagram connect for accounts you logged in,
-            and Scout Lens captures. The spreadsheet is history only if you tick the box above.
+            Connecting TikTok or Instagram only imports the account you logged in as. Those logins cannot search or
+            scrape other people. Other TT/IG names come from links on YouTube channels, Scout Lens, or a search-engine
+            site: query if CSE/Brave keys are set.
           </p>
           <p className="text-xs text-muted">
             {searchConfigured

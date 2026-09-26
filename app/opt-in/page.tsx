@@ -55,7 +55,7 @@ function OptInInner() {
     connected === "instagram" || saved.some((s) => s.platform === "instagram" && s.via === "oauth");
 
   const banner = useMemo(() => {
-    if (connected) return `${connected === "tiktok" ? "TikTok" : "Instagram"} connected. Username and bio from the official API are stored below — reconnect if that row looks empty.`;
+    if (connected) return `${connected === "tiktok" ? "TikTok" : "Instagram"} connected. That login only returns YOUR profile (username, bio, followers). It is not permission to crawl other accounts. Reconnect if this row looks empty.`;
     if (reason === "no_app") {
       return "Official login needs a TikTok Login Kit / Meta Instagram app. Share your public username below so we can store a consented opt-in without scraping.";
     }
@@ -101,8 +101,10 @@ function OptInInner() {
       <div className="flex-1 max-w-xl mx-auto px-6 py-16 space-y-4 w-full">
       <h1 className="text-2xl font-semibold">Work with Prenew</h1>
       <p className="text-muted text-sm">
-        Connect TikTok or Instagram with official login (Login Kit / Instagram Login), or share a public
-        username. We only store what you consent to. No scraping, no auto-DMs.
+        Connect TikTok or Instagram with official login. That only loads the account you sign in with (for a creator
+        opt-in). It cannot search TikTok/Instagram or pull other people’s profiles. Discovery of other creators uses
+        YouTube’s API, Instagram Business Discovery for public usernames, Scout Lens, or indexed site: search — never a
+        crawl.
       </p>
       {banner && <p className="text-sm text-amber-500">{banner}</p>}
       <div className="card p-6 space-y-3">
