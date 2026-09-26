@@ -16,6 +16,8 @@ import { presetCatalogCreators } from "./presetCatalog";
 import { scoreVisibleProfile } from "./scoreProfile";
 import { filterCreatorsBySize, followersMatchSize, sizeRangeActive } from "./sizeRange";
 import { discoverViaSearchIndex } from "./webDiscover";
+import { twitchDiscoverCreators } from "./twitchCreators";
+import { twitchConfigured } from "./twitch";
 import type { CreatorAccount, DiscoverRequest, DiscoverResponse, MarketTerms, RecentPost, ScoredCreator } from "./types";
 import { fetchChannels, fetchVideos, searchRecentVideos, youtubeUrl, type YtChannel, type YtVideoHit, type YtVideoStats } from "./youtube";
 
@@ -177,6 +179,14 @@ async function attachLiveSources(req: DiscoverRequest, result: DiscoverResponse)
     const web = await discoverViaSearchIndex(req);
     creators = mergeCreators(creators, web.creators);
     notes = [...notes, ...web.notes];
+  }
+
+  // Live Twitch discovery (Helix). Runs even when country is restricted because
+  // Twitch results carry a language we filter on. Needs TWITCH_CLIENT_ID/SECRET.
+  if (platforms.includes("twitch") && twitchConfigured()) {
+    const tw = await twitchDiscoverCreators(req);
+    creators = mergeCreators(creators, tw.creators);
+    notes = [...notes, ...tw.notes];
   }
 
   const connected = await connectedOptInCreators(req);
