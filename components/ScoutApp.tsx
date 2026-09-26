@@ -205,11 +205,13 @@ export default function ScoutApp() {
           mode: "auto",
           webDiscover,
           includePrenewCollabs,
+          localOnly,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Search failed");
       setResult(data);
+      if (data.error) setError(data.error);
       setShortlist([]);
       setRuledOut([]);
       setPage(1);

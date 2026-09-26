@@ -83,9 +83,10 @@ function num(v: unknown) {
 export async function searchRecentVideos(opts: {
   key: string;
   q: string;
-  regionCode: string;
-  relevanceLanguage: string;
-  publishedAfter: string;
+  regionCode?: string;
+  relevanceLanguage?: string;
+  publishedAfter?: string;
+  order?: "date" | "relevance" | "viewCount" | "rating";
   maxResults?: number;
 }): Promise<{ items: YtVideoHit[]; units: number }> {
   type SearchRes = {
@@ -100,20 +101,17 @@ export async function searchRecentVideos(opts: {
       };
     }[];
   };
-  const data = await ytGet<SearchRes>(
-    "search",
-    {
-      part: "snippet",
-      type: "video",
-      q: opts.q,
-      regionCode: opts.regionCode,
-      relevanceLanguage: opts.relevanceLanguage,
-      order: "date",
-      maxResults: String(opts.maxResults ?? 25),
-      publishedAfter: opts.publishedAfter,
-    },
-    opts.key,
-  );
+  const params: Record<string, string> = {
+    part: "snippet",
+    type: "video",
+    q: opts.q,
+    order: opts.order ?? "relevance",
+    maxResults: String(opts.maxResults ?? 25),
+  };
+  if (opts.regionCode) params.regionCode = opts.regionCode;
+  if (opts.relevanceLanguage) params.relevanceLanguage = opts.relevanceLanguage;
+  if (opts.publishedAfter) params.publishedAfter = opts.publishedAfter;
+  const data = await ytGet<SearchRes>("search", params, opts.key);
   const items: YtVideoHit[] = [];
   for (const it of data.items ?? []) {
     const videoId = it.id?.videoId;

@@ -89,6 +89,8 @@ export type DiscoverRequest = {
   workspaceId?: string | null;
   /** Off by default. Sheet is collab history, not live discovery. */
   includePrenewCollabs?: boolean;
+  /** When true, drop YouTube channels that don’t look like the selected country. */
+  localOnly?: boolean;
 };
 
 export type MarketTerms = {
@@ -109,4 +111,5 @@ export type DiscoverResponse = {
   apiUnitsUsed: number;
   hoursSavedEstimate: number;
   notes: string[];
+  error?: string;
 };

@@ -129,7 +129,7 @@ export async function runDiscover(req: DiscoverRequest): Promise<DiscoverRespons
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       if (/blocked search\.list|V3DataSearchService\.List are blocked/i.test(message)) {
-        return attachLiveSources(
+        const blocked = await attachLiveSources(
           req,
           emptyLive(req, [
             "YouTube search.list is blocked on this API key — live YouTube discovery cannot run until Google Cloud allows it.",
@@ -137,6 +137,8 @@ export async function runDiscover(req: DiscoverRequest): Promise<DiscoverRespons
             "Not substituting the collab sheet or sample channels. Connected TikTok/Instagram, Lens, and site: search still run.",
           ]),
         );
+        blocked.error = message;
+        return blocked;
       }
       throw e;
     }
@@ -145,18 +147,21 @@ export async function runDiscover(req: DiscoverRequest): Promise<DiscoverRespons
   const notes: string[] = [];
   if (wantYt && !key) {
     notes.push(
-      "No YOUTUBE_API_KEY — YouTube Data API search was skipped. Add the key (the one you fetched) to .env.local / Vercel and restart.",
+      "YouTube API key is empty in this environment. Put YOUTUBE_API_KEY in .env.local (local) or Vercel env (production) and restart. Discovery will not invent sheet/sample channels.",
     );
   }
   if (!wantYt) notes.push("YouTube is unchecked, so YouTube Data API was not queried.");
-  return attachLiveSources(req, emptyLive(req, notes));
+  const result = await attachLiveSources(req, emptyLive(req, notes));
+  if (wantYt && !key) {
+    result.error = notes[0];
+  }
+  return result;
 }
 
 async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<DiscoverResponse> {
   const brand = mergeBrand(req.brand);
   const fromIds = [...(req.nicheIds ?? []), req.nicheId ?? ""].filter(isNicheId);
   const niches = fromIds.length ? fromIds : nichesFromBrief(req.brief);
-  const publishedAfter = new Date(Date.now() - req.timeWindowDays * 86_400_000).toISOString();
   const termsPerMarket: MarketTerms[] = [];
   let units = 0;
   const notes: string[] = [];
@@ -182,19 +187,26 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
       source,
     });
 
-    const q =
-      market.language === "vi"
-        ? `${terms.join(" ")} Việt Nam`
-        : terms.join(" ");
-    const search = await searchRecentVideos({
+    const q = terms[0] || req.brief.split(",")[0]?.trim() || "gameplay";
+    let search = await searchRecentVideos({
       key,
       q,
       regionCode: market.ytRegion,
-      relevanceLanguage: market.language,
-      publishedAfter,
+      order: "relevance",
       maxResults: 50,
     });
     units += search.units;
+    if (search.items.length === 0 && terms[1]) {
+      const retry = await searchRecentVideos({
+        key,
+        q: terms[1],
+        regionCode: market.ytRegion,
+        order: "relevance",
+        maxResults: 50,
+      });
+      units += retry.units;
+      search = retry;
+    }
 
     const grouped = new Map<string, YtVideoHit[]>();
     for (const v of search.items) {
@@ -212,23 +224,30 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
     const channelById = new Map(chRes.items.map((c) => [c.id, c]));
 
     const marketCreators: ScoredCreator[] = [];
+    let droppedSize = 0;
+    let droppedCountry = 0;
     for (const [channelId, hits] of grouped) {
       if (seen.has(channelId)) continue;
       const channel = channelById.get(channelId);
       if (!channel) continue;
       const stats = hits.map((h) => videoById.get(h.videoId)).filter(Boolean) as YtVideoStats[];
       const followers = channel.subscriberCount;
-      if (!followersMatchSize(followers, req.sizeMin, req.sizeMax)) continue;
+      if (!followersMatchSize(followers, req.sizeMin, req.sizeMax)) {
+        droppedSize += 1;
+        continue;
+      }
       const blob = `${channel.title} ${channel.description} ${hits.map((h) => h.title).join(" ")} ${stats.map((s) => s.title).join(" ")}`;
-      if (
-        !belongsToMarket({
+      if (req.localOnly) {
+        const local = belongsToMarket({
           channelCountry: channel.country ?? null,
           targetMarket: code,
           language: market.language,
           text: blob,
-        })
-      ) {
-        continue;
+        });
+        if (!local) {
+          droppedCountry += 1;
+          continue;
+        }
       }
       if (shouldExcludePcHardware(niches) && looksLikePcHardware(blob)) {
         continue;
@@ -278,10 +297,16 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
       }
     }
     allCreators.push(...marketCreators);
+    notes.push(
+      `${code}: YouTube “${q}” → ${search.items.length} videos, ${grouped.size} channels, ${marketCreators.length} listed` +
+        (droppedSize ? `, ${droppedSize} outside follower range` : "") +
+        (droppedCountry ? `, ${droppedCountry} failed country check` : "") +
+        ".",
+    );
   }
 
   allCreators.sort((a, b) => b.fit - a.fit);
-  notes.push("YouTube Data API v3 live search. Linked TikTok/Instagram handles come from public channel descriptions only.");
+  notes.push("YouTube Data API v3 live search (relevance, region). Linked TikTok/Instagram handles come from public channel descriptions only.");
   notes.push("No messages are sent automatically. Marketer must edit and send.");
   if (!llmAvailable()) notes.push("OPENAI_API_KEY missing — query translation used the niche dictionary; fit is rules-only.");
 
