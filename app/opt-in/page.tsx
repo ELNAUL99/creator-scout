@@ -47,6 +47,10 @@ function OptInInner() {
       .catch(() => {});
   }, [connected]);
 
+  const tiktokConnected = connected === "tiktok" || saved.some((s) => s.platform === "tiktok" && s.via === "oauth");
+  const instagramConnected =
+    connected === "instagram" || saved.some((s) => s.platform === "instagram" && s.via === "oauth");
+
   const banner = useMemo(() => {
     if (connected) return `${connected === "tiktok" ? "TikTok" : "Instagram"} connected. We only store the public profile you authorized.`;
     if (reason === "no_app") {
@@ -98,18 +102,36 @@ function OptInInner() {
       </p>
       {banner && <p className="text-sm text-amber-200/90">{banner}</p>}
       <div className="rounded-xl border border-zinc-800 p-6 space-y-3">
-        <a
-          href="/api/connect/tiktok"
-          className="block w-full text-center rounded-lg py-2.5 bg-emerald-500 text-black font-medium"
-        >
-          Connect TikTok
-        </a>
-        <a
-          href="/api/connect/instagram"
-          className="block w-full text-center rounded-lg py-2.5 border border-zinc-500 hover:border-emerald-400"
-        >
-          Connect Instagram
-        </a>
+        {tiktokConnected ? (
+          <div
+            aria-disabled="true"
+            className="block w-full text-center rounded-lg py-2.5 bg-emerald-900/40 text-emerald-300 font-medium cursor-not-allowed select-none"
+          >
+            TikTok connected ✓
+          </div>
+        ) : (
+          <a
+            href="/api/connect/tiktok"
+            className="block w-full text-center rounded-lg py-2.5 bg-emerald-500 text-black font-medium"
+          >
+            Connect TikTok
+          </a>
+        )}
+        {instagramConnected ? (
+          <div
+            aria-disabled="true"
+            className="block w-full text-center rounded-lg py-2.5 border border-emerald-800 bg-emerald-900/40 text-emerald-300 cursor-not-allowed select-none"
+          >
+            Instagram connected ✓
+          </div>
+        ) : (
+          <a
+            href="/api/connect/instagram"
+            className="block w-full text-center rounded-lg py-2.5 border border-zinc-500 hover:border-emerald-400"
+          >
+            Connect Instagram
+          </a>
+        )}
         <p className="text-xs text-zinc-500">
           {tiktokOAuth
             ? "TikTok Login Kit is configured — Connect TikTok opens TikTok’s official login."
