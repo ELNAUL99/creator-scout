@@ -7,7 +7,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabaseBrowser";
 function SignupInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") || "/";
+  const next = params.get("next") || "/app";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);

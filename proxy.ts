@@ -6,6 +6,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const PUBLIC_PREFIXES = ["/login", "/signup", "/terms", "/privacy", "/auth"];
 
 function isPublicPath(pathname: string) {
+  if (pathname === "/") return true; // public onboarding / landing page
   if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return true;
   if (pathname.startsWith("/api/connect/")) return true; // TikTok/Instagram OAuth start + callback
   return false;
@@ -53,7 +54,7 @@ export async function proxy(req: NextRequest) {
 
   if (user && (pathname === "/login" || pathname === "/signup")) {
     const home = req.nextUrl.clone();
-    home.pathname = "/";
+    home.pathname = "/app";
     home.search = "";
     return NextResponse.redirect(home);
   }
