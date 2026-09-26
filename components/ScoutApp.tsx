@@ -219,10 +219,10 @@ export default function ScoutApp() {
   return (
     <div className="min-h-full flex flex-col text-foreground">
       <header className="border-b border-border px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-accent-text">Prenew hackathon</p>
-          <h1 className="text-xl font-semibold tracking-tight">Creator Scout</h1>
-        </div>
+          <a href="/" className="block">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-accent-text">Prenew hackathon</p>
+            <h1 className="text-xl font-semibold tracking-tight">Creator Scout</h1>
+          </a>
         <div className="flex items-center gap-3">
           <LegalNav />
           <ThemeToggle />

@@ -1,29 +1,42 @@
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
 import { SiteFooter } from "@/components/Legal";
+import { getCurrentUser } from "@/lib/auth";
 
-export default function Landing() {
+export default async function Landing() {
+  const user = await getCurrentUser();
   return (
     <div className="min-h-full flex flex-col">
       {/* Nav */}
       <header className="mx-auto w-full max-w-6xl px-6 py-5 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
+        <Link href="/" className="flex items-center gap-2.5">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-accent text-accent-foreground font-bold shadow-[var(--shadow-md)]">
             CS
           </span>
           <span className="font-semibold tracking-tight">Creator Scout</span>
-        </div>
+        </Link>
         <div className="flex items-center gap-3">
           <ThemeToggle />
-          <Link href="/login" className="text-sm text-muted hover:text-foreground px-2">
-            Log in
-          </Link>
-          <Link
-            href="/signup"
-            className="text-sm rounded-full bg-foreground text-background px-4 py-2 font-medium hover:opacity-90 transition-opacity"
-          >
-            Sign up
-          </Link>
+          {user ? (
+            <Link
+              href="/app"
+              className="text-sm rounded-full bg-foreground text-background px-4 py-2 font-medium hover:opacity-90 transition-opacity"
+            >
+              Start scouting
+            </Link>
+          ) : (
+            <>
+              <Link href="/login" className="text-sm text-muted hover:text-foreground px-2">
+                Log in
+              </Link>
+              <Link
+                href="/signup"
+                className="text-sm rounded-full bg-foreground text-background px-4 py-2 font-medium hover:opacity-90 transition-opacity"
+              >
+                Sign up
+              </Link>
+            </>
+          )}
         </div>
       </header>
 
@@ -41,12 +54,20 @@ export default function Landing() {
               in hours, not weeks.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/signup" className="btn-primary px-6 py-3 font-semibold inline-flex items-center gap-2">
-                Start scouting free <span aria-hidden>→</span>
-              </Link>
-              <Link href="/login" className="btn-ghost px-6 py-3 font-medium">
-                I already have an account
-              </Link>
+              {user ? (
+                <Link href="/app" className="btn-primary px-6 py-3 font-semibold inline-flex items-center gap-2">
+                  Start scouting <span aria-hidden>→</span>
+                </Link>
+              ) : (
+                <>
+                  <Link href="/signup" className="btn-primary px-6 py-3 font-semibold inline-flex items-center gap-2">
+                    Start scouting free <span aria-hidden>→</span>
+                  </Link>
+                  <Link href="/login" className="btn-ghost px-6 py-3 font-medium">
+                    I already have an account
+                  </Link>
+                </>
+              )}
             </div>
             <p className="mt-6 text-sm text-muted flex flex-wrap gap-x-5 gap-y-1">
               <span>Trusted for small-market discovery</span>
