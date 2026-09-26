@@ -9,6 +9,7 @@ function isPublicPath(pathname: string) {
   if (pathname === "/") return true; // public onboarding / landing page
   if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return true;
   if (pathname.startsWith("/api/connect/")) return true; // TikTok/Instagram OAuth start + callback
+  if (pathname.startsWith("/api/public/")) return true; // browser auth config (anon key is public)
   return false;
 }
 

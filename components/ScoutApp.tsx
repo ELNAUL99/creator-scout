@@ -228,7 +228,8 @@ export default function ScoutApp() {
           <ThemeToggle />
           <button
             onClick={async () => {
-              await createSupabaseBrowserClient().auth.signOut();
+              const supabase = await createSupabaseBrowserClient();
+              await supabase.auth.signOut();
               window.location.href = "/login";
             }}
             className="text-sm text-muted hover:text-accent-text"

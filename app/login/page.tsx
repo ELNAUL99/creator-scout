@@ -18,7 +18,7 @@ function LoginInner() {
     setBusy(true);
     setError(null);
     try {
-      const supabase = createSupabaseBrowserClient();
+      const supabase = await createSupabaseBrowserClient();
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) throw error;
       router.replace(next);

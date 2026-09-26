@@ -19,7 +19,7 @@ function SignupInner() {
     setBusy(true);
     setError(null);
     try {
-      const supabase = createSupabaseBrowserClient();
+      const supabase = await createSupabaseBrowserClient();
       const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
       if (error) throw error;
       // If email confirmation is on, there's no session yet — tell the user to confirm.
