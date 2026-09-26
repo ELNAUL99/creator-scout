@@ -160,6 +160,21 @@ export function answerFromFacts(question: string, d: CreatorDossier): string {
   const t = q(question);
   const sampleNote = ` ${d.caveat}`;
 
+  if (/famous|popular|well.?known|household|society|celebrity|how big|reach|audience size/.test(t)) {
+    const fol = d.followers > 0 ? `${d.followers.toLocaleString()} followers (${d.tier})` : `no public follower count (${d.tier} from what we have)`;
+    const peak =
+      d.peakViews == null
+        ? "no peak view in this sample"
+        : `${d.peakViews.toLocaleString()} views on the biggest video in this sample`;
+    const vs =
+      d.followers > 0 && d.peakViews
+        ? d.peakViews >= d.followers
+          ? " That peak is at or above their subscriber count, so those videos travelled beyond the regular audience."
+          : " Peak views are below subscriber count in this sample, so reach looks more in-community than mass-famous."
+        : "";
+    return `We can't measure “fame in society” from this tool — only this search sample. ${d.name} looks like a ${d.tier} creator with ${fol}, country ${d.country ?? "unknown"}, and ${peak}.${vs} That is a useful collab signal, not proof they are a household name.${sampleNote}`;
+  }
+
   if (/peak|highest|best.?perform|most view|viral|biggest/.test(t)) {
     if (d.peakViews == null || !d.peakTitle) {
       return `We don't have view counts in this sample for ${d.name}, so I can't name a peak.${sampleNote}`;
@@ -206,12 +221,5 @@ export function answerFromFacts(question: string, d: CreatorDossier): string {
     return `${d.name} is ${d.tier}${d.followers > 0 ? ` with ${d.followers.toLocaleString()} followers in this sample` : " (no public follower count here)"}.`;
   }
 
-  return [
-    `${d.name}: ${snapshotLine(d)}.`,
-    d.posts[0] ? `Latest title: “${d.posts[0].title}”.` : "",
-    `Ask about peak views, last upload, recent titles, or fit — I'll stay on these facts.`,
-    d.caveat,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  return `I can only use this search sample. ${d.name}: ${snapshotLine(d)}. ${d.posts[0] ? `Latest title: “${d.posts[0].title}”.` : ""} ${d.caveat}`;
 }

@@ -5,10 +5,10 @@ import { buildCreatorDossier, snapshotLine } from "@/lib/creatorDossier";
 import type { ScoredCreator } from "@/lib/types";
 
 const PROMPTS = [
+  "How well known are they?",
   "How recent is the last upload?",
   "What's the peak view in this sample?",
   "What have they posted lately?",
-  "Are they posting consistently?",
 ];
 
 type Turn = { role: "user" | "assistant"; content: string };
@@ -83,7 +83,7 @@ export default function CreatorFollowUp({ creator }: { creator: ScoredCreator })
       >
         <input
           className="flex-1 text-xs bg-surface-2 border border-border rounded px-2 py-1.5"
-          placeholder="Peak views, last upload, recent titles…"
+          placeholder="Ask anything — fame, last upload, titles…"
           value={input}
           disabled={loading}
           onChange={(e) => setInput(e.target.value)}

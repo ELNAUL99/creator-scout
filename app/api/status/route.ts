@@ -10,5 +10,6 @@ export async function GET() {
     instagramConfigured: instagramConfigured(),
     tiktokOAuth: tiktokOAuthConfigured(),
     instagramOAuth: instagramOAuthConfigured(),
+    llmConfigured: Boolean((process.env.MISTRAL_API_KEY ?? process.env.OPENAI_API_KEY ?? "").trim()),
   });
 }
