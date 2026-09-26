@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { appBaseUrl, readOauthCookie } from "@/lib/oauth";
 import { upsertOptIn } from "@/lib/optInStore";
-import { getCurrentWorkspaceId } from "@/lib/auth";
 import { saveIgConnection } from "@/lib/igConnectionStore";
 
 type IgUser = {
@@ -71,23 +70,19 @@ export async function GET(req: Request) {
   }
 
   const handle = user.username || String(userId || user.id || "instagram");
-  const workspaceId = await getCurrentWorkspaceId();
   await saveIgConnection({
-    workspaceId: workspaceId || "local",
+    workspaceId: "local",
     igUserId: String(user.id || userId || ""),
     accessToken,
     username: handle,
   });
-  await upsertOptIn(
-    {
-      platform: "instagram",
-      handle,
-      displayName: user.name || handle,
-      followers: user.followers_count ?? null,
-      bio: user.biography ?? "",
-      via: "oauth",
-    },
-    workspaceId,
-  );
+  await upsertOptIn({
+    platform: "instagram",
+    handle,
+    displayName: user.name || handle,
+    followers: user.followers_count ?? null,
+    bio: user.biography ?? "",
+    via: "oauth",
+  });
   return NextResponse.redirect(`${base}/opt-in?connected=instagram`);
 }

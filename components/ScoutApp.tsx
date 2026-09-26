@@ -9,7 +9,6 @@ import { MARKET_REGIONS, MARKETS } from "@/lib/markets";
 import { NICHE_OPTIONS, NICHE_TERMS, type NicheId } from "@/lib/niches";
 import type { DiscoverResponse, ScoredCreator, Platform } from "@/lib/types";
 import type { RisingResponse } from "@/lib/trends";
-import { createSupabaseBrowserClient } from "@/lib/supabaseBrowser";
 import { BrandHomeLink } from "@/components/BrandHomeLink";
 import ThemeToggle from "@/components/ThemeToggle";
 import CreatorFollowUp from "@/components/CreatorFollowUp";
@@ -303,16 +302,6 @@ export default function ScoutApp() {
         <div className="flex items-center gap-3">
           <LegalNav />
           <ThemeToggle />
-          <button
-            onClick={async () => {
-              const supabase = await createSupabaseBrowserClient();
-              await supabase.auth.signOut();
-              window.location.href = "/login";
-            }}
-            className="text-sm text-muted hover:text-accent-text"
-          >
-            Sign out
-          </button>
         </div>
       </header>
 

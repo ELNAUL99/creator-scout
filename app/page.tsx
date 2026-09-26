@@ -1,10 +1,8 @@
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
 import { SiteFooter } from "@/components/Legal";
-import { getCurrentUser } from "@/lib/auth";
 
-export default async function Landing() {
-  const user = await getCurrentUser();
+export default function Landing() {
   return (
     <div className="min-h-full flex flex-col">
       {/* Nav */}
@@ -17,26 +15,12 @@ export default async function Landing() {
         </Link>
         <div className="flex items-center gap-3">
           <ThemeToggle />
-          {user ? (
-            <Link
-              href="/app"
-              className="text-sm rounded-full bg-foreground text-background px-4 py-2 font-medium hover:opacity-90 transition-opacity"
-            >
-              Start scouting
-            </Link>
-          ) : (
-            <>
-              <Link href="/login" className="text-sm text-muted hover:text-foreground px-2">
-                Log in
-              </Link>
-              <Link
-                href="/signup"
-                className="text-sm rounded-full bg-foreground text-background px-4 py-2 font-medium hover:opacity-90 transition-opacity"
-              >
-                Sign up
-              </Link>
-            </>
-          )}
+          <Link
+            href="/app"
+            className="text-sm rounded-full bg-foreground text-background px-4 py-2 font-medium hover:opacity-90 transition-opacity"
+          >
+            Open app
+          </Link>
         </div>
       </header>
 
@@ -54,20 +38,9 @@ export default async function Landing() {
               in hours, not weeks.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              {user ? (
-                <Link href="/app" className="btn-primary px-6 py-3 font-semibold inline-flex items-center gap-2">
-                  Start scouting <span aria-hidden>→</span>
-                </Link>
-              ) : (
-                <>
-                  <Link href="/signup" className="btn-primary px-6 py-3 font-semibold inline-flex items-center gap-2">
-                    Start scouting free <span aria-hidden>→</span>
-                  </Link>
-                  <Link href="/login" className="btn-ghost px-6 py-3 font-medium">
-                    I already have an account
-                  </Link>
-                </>
-              )}
+              <Link href="/app" className="btn-primary px-6 py-3 font-semibold inline-flex items-center gap-2">
+                Start scouting <span aria-hidden>→</span>
+              </Link>
             </div>
             <p className="mt-6 text-sm text-muted flex flex-wrap gap-x-5 gap-y-1">
               <span>Trusted for small-market discovery</span>

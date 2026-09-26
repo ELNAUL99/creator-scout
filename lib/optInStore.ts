@@ -1,7 +1,6 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import type { Platform } from "./types";
-import { getSupabaseAdmin } from "./supabase";
 
 export type OptInRecord = {
   id: string;
@@ -14,35 +13,9 @@ export type OptInRecord = {
   via: "oauth" | "public_handle";
 };
 
-// Row shape in the Supabase `opt_ins` table (snake_case columns).
-type OptInRow = {
-  workspace_id: string;
-  id: string;
-  platform: OptInRecord["platform"];
-  handle: string;
-  display_name: string;
-  followers: number | null;
-  bio: string;
-  consented_at: string;
-  via: OptInRecord["via"];
-};
-
-function rowToRecord(r: OptInRow): OptInRecord {
-  return {
-    id: r.id,
-    platform: r.platform,
-    handle: r.handle,
-    displayName: r.display_name,
-    followers: r.followers,
-    bio: r.bio,
-    consentedAt: r.consented_at,
-    via: r.via,
-  };
-}
-
-// ---- File fallback (local dev / when Supabase is not configured) ----
-// Vercel's serverless filesystem is read-only except for /tmp, and /tmp is
-// ephemeral and per-instance, so this fallback is not durable in production.
+// File-based opt-in store. Vercel's serverless filesystem is read-only except
+// for /tmp, and /tmp is ephemeral and per-instance, so this is not durable in
+// production — good enough for the demo / opt-in showcase.
 const DATA_DIR = process.env.DATA_DIR
   ? process.env.DATA_DIR
   : process.env.VERCEL
@@ -68,26 +41,14 @@ async function fileWriteAll(rows: OptInRecord[]) {
   }
 }
 
-export async function listOptIns(workspaceId: string | null): Promise<OptInRecord[]> {
-  const db = getSupabaseAdmin();
-  if (db && workspaceId) {
-    const { data, error } = await db
-      .from("opt_ins")
-      .select("*")
-      .eq("workspace_id", workspaceId)
-      .order("consented_at", { ascending: false });
-    if (error) {
-      console.error("optInStore: Supabase list failed", error);
-      return [];
-    }
-    return (data as OptInRow[]).map(rowToRecord);
-  }
+// workspaceId is accepted for signature compatibility but ignored (no multi-tenancy).
+export async function listOptIns(_workspaceId?: string | null): Promise<OptInRecord[]> {
   return fileReadAll();
 }
 
 export async function upsertOptIn(
   row: Omit<OptInRecord, "id" | "consentedAt"> & { id?: string },
-  workspaceId: string | null,
+  _workspaceId?: string | null,
 ): Promise<OptInRecord> {
   const handle = row.handle.replace(/^@/, "").toLowerCase();
   const id = row.id ?? `${row.platform}:${handle}`;
@@ -101,28 +62,6 @@ export async function upsertOptIn(
     consentedAt: new Date().toISOString(),
     via: row.via,
   };
-
-  const db = getSupabaseAdmin();
-  if (db && workspaceId) {
-    const { error } = await db.from("opt_ins").upsert(
-      {
-        workspace_id: workspaceId,
-        id: next.id,
-        platform: next.platform,
-        handle: next.handle,
-        display_name: next.displayName,
-        followers: next.followers,
-        bio: next.bio,
-        consented_at: next.consentedAt,
-        via: next.via,
-      } satisfies OptInRow,
-      { onConflict: "workspace_id,id" },
-    );
-    if (error) console.error("optInStore: Supabase upsert failed", error);
-    return next;
-  }
-
-  // File fallback (local dev without Supabase)
   const rows = await fileReadAll();
   const rest = rows.filter((r) => r.id !== id);
   rest.unshift(next);

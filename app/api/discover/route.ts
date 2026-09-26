@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getCurrentWorkspaceId } from "@/lib/auth";
 import { NICHE_TERMS, isNicheId } from "@/lib/niches";
 import { runDiscover } from "@/lib/pipeline";
 import type { DiscoverRequest } from "@/lib/types";
@@ -17,7 +16,6 @@ export async function POST(req: Request) {
     ]
       .filter(Boolean)
       .join(". ");
-    const workspaceId = await getCurrentWorkspaceId();
     const result = await runDiscover({
       brief,
       markets: body.markets ?? [],
@@ -36,7 +34,6 @@ export async function POST(req: Request) {
       includePrenewCollabs: Boolean(body.includePrenewCollabs),
       includePresetCatalog: body.includePresetCatalog !== false,
       localOnly: body.localOnly !== false,
-      workspaceId,
     });
     return NextResponse.json(result);
   } catch (e) {
