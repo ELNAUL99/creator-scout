@@ -34,7 +34,7 @@ export async function POST(req: Request) {
       youtubeApiKey: body.youtubeApiKey,
       webDiscover: body.webDiscover !== false,
       includePrenewCollabs: Boolean(body.includePrenewCollabs),
-      localOnly: Boolean(body.localOnly),
+      localOnly: body.localOnly !== false,
       workspaceId,
     });
     return NextResponse.json(result);

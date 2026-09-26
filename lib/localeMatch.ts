@@ -25,18 +25,29 @@ export function looksLikeLanguage(text: string, language: string) {
   return hint.test(text);
 }
 
+/** Strict: a declared channel country must be one of the selected markets. Never keep a US channel for Finland because the title has one local word. */
+export function matchesSelectedCountries(
+  channelCountry: string | null | undefined,
+  selected: string[],
+  opts?: { language?: string; text?: string },
+) {
+  if (!selected.length) return true;
+  const cc = (channelCountry ?? "").toUpperCase();
+  const allow = new Set(selected.map((s) => s.toUpperCase()));
+  if (cc) return allow.has(cc);
+  const lang = opts?.language ?? "en";
+  if (lang === "en") return false;
+  return looksLikeLanguage(opts?.text ?? "", lang);
+}
+
 export function belongsToMarket(opts: {
   channelCountry: string | null | undefined;
   targetMarket: string;
   language: string;
   text: string;
 }) {
-  const cc = (opts.channelCountry ?? "").toUpperCase();
-  const target = opts.targetMarket.toUpperCase();
-  if (cc === target) return true;
-  if (cc && cc !== target) {
-    return looksLikeLanguage(opts.text, opts.language);
-  }
-  if (opts.language === "en") return true;
-  return looksLikeLanguage(opts.text, opts.language);
+  return matchesSelectedCountries(opts.channelCountry, [opts.targetMarket], {
+    language: opts.language,
+    text: opts.text,
+  });
 }

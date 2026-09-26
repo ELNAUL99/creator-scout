@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import CheckDropdown from "@/components/CheckDropdown";
 import { LegalNav, SiteFooter } from "@/components/Legal";
-import { belongsToMarket } from "@/lib/localeMatch";
+import { matchesSelectedCountries } from "@/lib/localeMatch";
 import { followersMatchSize } from "@/lib/sizeRange";
 import { MARKET_REGIONS, MARKETS } from "@/lib/markets";
 import { NICHE_OPTIONS, NICHE_TERMS, type NicheId } from "@/lib/niches";
@@ -111,7 +111,7 @@ export default function ScoutApp() {
   const [shortlist, setShortlist] = useState<ScoredCreator[]>([]);
   const [gemsOnly, setGemsOnly] = useState(false);
   const [showFlagged, setShowFlagged] = useState(true);
-  const [localOnly, setLocalOnly] = useState(false);
+  const [includeOtherCountries, setIncludeOtherCountries] = useState(false);
   const [ruledOut, setRuledOut] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -166,12 +166,11 @@ export default function ScoutApp() {
           return false;
         }
       }
-      if (localOnly) {
+      if (markets.length && !includeOtherCountries) {
         const text = `${c.displayName} ${c.recentContent.map((p) => p.titleOrCaption).join(" ")}`;
-        const local = belongsToMarket({
-          channelCountry: c.country,
-          targetMarket: c.searchedMarket,
-          language: c.languages[0] ?? "en",
+        const market = MARKETS.find((m) => m.code === c.searchedMarket);
+        const local = matchesSelectedCountries(c.country, markets, {
+          language: market?.language ?? c.languages[0] ?? "en",
           text,
         });
         if (!local) {
@@ -182,7 +181,7 @@ export default function ScoutApp() {
       return true;
     });
     return { visible, hiddenFlagged, hiddenCountry, hiddenSize, hiddenGems };
-  }, [result, gemsOnly, showFlagged, localOnly, followerMin, followerMax, viewMin, viewMax, ruledOut]);
+  }, [result, gemsOnly, showFlagged, includeOtherCountries, markets, followerMin, followerMax, viewMin, viewMax, ruledOut]);
 
   const PAGE_SIZE = 20;
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
@@ -209,7 +208,7 @@ export default function ScoutApp() {
           mode: "auto",
           webDiscover,
           includePrenewCollabs,
-          localOnly,
+          localOnly: markets.length > 0 && !includeOtherCountries,
           brand: brandWish.trim() ? { pitch: brandWish.trim() } : undefined,
         }),
       });
@@ -349,7 +348,10 @@ export default function ScoutApp() {
             }))}
           />
           {markets.length === 0 && (
-            <p className="text-xs text-muted">Worldwide search — no country filter. Select countries only for local-language terms.</p>
+            <p className="text-xs text-muted">No country selected — worldwide. If you pick a country, only that country’s channels are listed.</p>
+          )}
+          {markets.length > 0 && (
+            <p className="text-xs text-muted">Default: only creators whose YouTube country is {markets.join(", ")}.</p>
           )}
           <div className="space-y-2">
             <p className="text-sm">What should creators feel like for the brand?</p>
@@ -656,7 +658,7 @@ export default function ScoutApp() {
                   Showing {visible.length} of {result.creators.length} found.
                   {hiddenGems > 0 ? ` ${hiddenGems} hidden by “Hidden gems only”.` : ""}
                   {hiddenFlagged > 0 ? ` ${hiddenFlagged} hidden by brand-risk flags.` : ""}
-                  {hiddenCountry > 0 ? ` ${hiddenCountry} hidden by “Only selected country”.` : ""}
+                  {hiddenCountry > 0 ? ` ${hiddenCountry} hidden — not in the selected country.` : ""}
                   {hiddenSize > 0
                     ? ` ${hiddenSize} outside the follower/view range (unknown subscriber counts are excluded).`
                     : ""}
@@ -703,11 +705,11 @@ export default function ScoutApp() {
                 <label className="text-sm flex gap-2">
                   <input
                     type="checkbox"
-                    checked={localOnly}
+                    checked={includeOtherCountries}
                     disabled={markets.length === 0}
-                    onChange={(e) => setLocalOnly(e.target.checked)}
+                    onChange={(e) => setIncludeOtherCountries(e.target.checked)}
                   />
-                  Only selected country
+                  Include other countries
                 </label>
                 <button
                   type="button"

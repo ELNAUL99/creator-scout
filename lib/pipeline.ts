@@ -1,7 +1,7 @@
 import { mergeBrand } from "./brand";
 import { extractHandles } from "./handles";
 import { llmAvailable, llmFit, llmTranslate } from "./llm";
-import { belongsToMarket } from "./localeMatch";
+import { matchesSelectedCountries } from "./localeMatch";
 import { getMarket } from "./markets";
 import { draftMessage, hoursSaved, ruleReasons } from "./messages";
 import { dictionaryTerms, isNicheId, looksLikePcHardware, nichesFromBrief, shouldExcludePcHardware, buildTermsPerMarket } from "./niches";
@@ -158,12 +158,19 @@ async function attachLiveSources(req: DiscoverRequest, result: DiscoverResponse)
   let creators = [...result.creators];
   let notes = [...result.notes];
   const platforms = req.platforms?.length ? req.platforms : ["youtube", "tiktok", "instagram"];
+  const restrictCountry = Boolean(req.markets.length && req.localOnly !== false);
 
-  const socials = await expandSocialsFromYoutube(req, creators);
-  creators = mergeCreators(creators, socials.extra);
-  notes = [...notes, ...socials.notes];
+  if (!restrictCountry) {
+    const socials = await expandSocialsFromYoutube(req, creators);
+    creators = mergeCreators(creators, socials.extra);
+    notes = [...notes, ...socials.notes];
+  }
 
-  if (req.webDiscover !== false && (platforms.includes("tiktok") || platforms.includes("instagram"))) {
+  if (
+    req.webDiscover !== false &&
+    (platforms.includes("tiktok") || platforms.includes("instagram")) &&
+    !restrictCountry
+  ) {
     const web = await discoverViaSearchIndex(req);
     creators = mergeCreators(creators, web.creators);
     notes = [...notes, ...web.notes];
@@ -263,12 +270,17 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
   const allCreators: ScoredCreator[] = [];
   const seen = new Set<string>();
 
-  if (req.localOnly && req.markets.length) {
-    notes.push("YouTube is limited to the countries you selected.");
+  if (req.markets.length) {
+    notes.push(
+      req.localOnly !== false
+        ? "Showing creators whose YouTube country matches your selection. Unknown-country channels only stay if the content is in that language."
+        : "Selected countries are used for local search terms; results can include other countries.",
+    );
   } else {
-    notes.push("Worldwide YouTube search — no country filter unless you tick “Only selected country”.");
+    notes.push("No country selected — worldwide YouTube search.");
   }
-  const passCodes = req.localOnly && req.markets.length ? req.markets : ["WW"];
+  const restrictCountry = Boolean(req.markets.length && req.localOnly !== false);
+  const passCodes = restrictCountry ? req.markets : ["WW"];
   for (const code of passCodes) {
     const worldwide = code === "WW";
     const market = worldwide
@@ -330,10 +342,8 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
         continue;
       }
       const blob = `${channel.title} ${channel.description} ${hits.map((h) => h.title).join(" ")} ${stats.map((s) => s.title).join(" ")}`;
-      if (req.localOnly) {
-        const local = belongsToMarket({
-          channelCountry: channel.country ?? null,
-          targetMarket: code,
+      if (restrictCountry) {
+        const local = matchesSelectedCountries(channel.country ?? null, req.markets, {
           language: market.language,
           text: blob,
         });
