@@ -40,6 +40,10 @@ export default function Landing() {
               even in small markets others miss — and scores each one for your niche, so you shortlist
               in hours, not weeks.
             </p>
+            <p className="mt-3 text-base text-muted max-w-xl">
+              Built to spot the next MrBeast or Valkyrae while they’re still small — not just the names
+              every brand already bids on.
+            </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/signup" className="btn-primary px-6 py-3 font-semibold inline-flex items-center gap-2">
                 Start scouting free <span aria-hidden>→</span>
