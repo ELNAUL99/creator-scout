@@ -40,10 +40,6 @@ export default function Landing() {
               even in small markets others miss — and scores each one for your niche, so you shortlist
               in hours, not weeks.
             </p>
-            <p className="mt-3 text-base text-muted max-w-xl">
-              Built to spot the next MrBeast or Valkyrae while they’re still small — not just the names
-              every brand already bids on.
-            </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/signup" className="btn-primary px-6 py-3 font-semibold inline-flex items-center gap-2">
                 Start scouting free <span aria-hidden>→</span>
@@ -81,12 +77,14 @@ export default function Landing() {
             </div>
             <div className="mt-3 space-y-2.5">
               {[
-                { n: "Maya Okafor", m: "1.2M · Lifestyle", s: 94 },
-                { n: "Devin Cole", m: "860K · Tech", s: 91 },
+                { n: "MrRockis", init: "MR", m: "Finland · Minecraft · 90K subs", s: 92 },
+                { n: "Svarbeuse dariti", init: "SD", m: "Lithuania · GTA · 75K subs", s: 88 },
               ].map((c) => (
                 <div key={c.n} className="card-sm flex items-center justify-between px-3 py-2.5">
                   <div className="flex items-center gap-3">
-                    <span className="h-9 w-9 rounded-full bg-accent-soft" />
+                    <span className="grid h-9 w-9 place-items-center rounded-full bg-accent-soft text-accent-text text-xs font-semibold">
+                      {c.init}
+                    </span>
                     <div>
                       <div className="text-sm font-medium">{c.n}</div>
                       <div className="text-[11px] text-muted">{c.m}</div>
