@@ -124,18 +124,29 @@ export default function ScoutApp() {
       .catch(() => {});
   }, []);
 
-  const { visible, hiddenFlagged, hiddenCountry, hiddenSize } = useMemo(() => {
+  const { visible, hiddenFlagged, hiddenCountry, hiddenSize, hiddenGems, filtersWipedList } = useMemo(() => {
     if (!result) {
-      return { visible: [] as ScoredCreator[], hiddenFlagged: 0, hiddenCountry: 0, hiddenSize: 0 };
+      return {
+        visible: [] as ScoredCreator[],
+        hiddenFlagged: 0,
+        hiddenCountry: 0,
+        hiddenSize: 0,
+        hiddenGems: 0,
+        filtersWipedList: false,
+      };
     }
     const fMax = followerMax > 0 ? followerMax : Infinity;
     const vMax = viewMax > 0 ? viewMax : Infinity;
     let hiddenFlagged = 0;
     let hiddenCountry = 0;
     let hiddenSize = 0;
-    const visible = result.creators.filter((c) => {
+    let hiddenGems = 0;
+    const kept = result.creators.filter((c) => {
       if (ruledOut.includes(c.id)) return false;
-      if (gemsOnly && !c.hiddenGem) return false;
+      if (gemsOnly && !c.hiddenGem) {
+        hiddenGems += 1;
+        return false;
+      }
       if (!showFlagged && c.flags.length > 0) {
         hiddenFlagged += 1;
         return false;
@@ -163,7 +174,16 @@ export default function ScoutApp() {
       }
       return true;
     });
-    return { visible, hiddenFlagged, hiddenCountry, hiddenSize };
+    const remaining = result.creators.filter((c) => !ruledOut.includes(c.id));
+    const filtersWipedList = kept.length === 0 && remaining.length > 0;
+    return {
+      visible: filtersWipedList ? remaining : kept,
+      hiddenFlagged,
+      hiddenCountry,
+      hiddenSize,
+      hiddenGems,
+      filtersWipedList,
+    };
   }, [result, gemsOnly, showFlagged, localOnly, followerMin, followerMax, viewMin, viewMax, ruledOut]);
 
   const PAGE_SIZE = 20;
@@ -199,6 +219,7 @@ export default function ScoutApp() {
       setShortlist([]);
       setRuledOut([]);
       setPage(1);
+      setGemsOnly(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Search failed");
     } finally {
@@ -490,12 +511,15 @@ export default function ScoutApp() {
                 <Stat label="Mode" value={result.mode} />
               </div>
               <p className="text-xs text-muted">*4 minutes per creator vs manual scrolling.</p>
-              {visible.length < result.creators.length && (
+              {(visible.length < result.creators.length || filtersWipedList) && (
                 <p className="text-sm text-amber-500">
-                  Showing {visible.length} of {result.creators.length} found.
-                  {hiddenFlagged > 0 ? ` ${hiddenFlagged} hidden by brand-risk flags (keep “Show brand-risk flags” on).` : ""}
-                  {hiddenCountry > 0 ? ` ${hiddenCountry} hidden as not matching the selected country (untick “Only selected country”).` : ""}
-                  {hiddenSize > 0 ? ` ${hiddenSize} hidden by follower/view range.` : ""}
+                  {filtersWipedList
+                    ? `Filters matched 0 of ${result.creators.length} (hidden gems / flags / country / size). Showing all so you can rule people out yourself.`
+                    : `Showing ${visible.length} of ${result.creators.length} found.`}
+                  {!filtersWipedList && hiddenGems > 0 ? ` ${hiddenGems} hidden by “Hidden gems only”.` : ""}
+                  {!filtersWipedList && hiddenFlagged > 0 ? ` ${hiddenFlagged} hidden by brand-risk flags.` : ""}
+                  {!filtersWipedList && hiddenCountry > 0 ? ` ${hiddenCountry} hidden by “Only selected country”.` : ""}
+                  {!filtersWipedList && hiddenSize > 0 ? ` ${hiddenSize} hidden by follower/view range.` : ""}
                 </p>
               )}
               {result.notes.map((n) => (
