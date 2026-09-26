@@ -5,7 +5,7 @@ const VI_CHARS =
   /[ăơưđảạẻẽẹỉĩịỏọủũụ]|[ầấẩẫậằắẳẵặềếểễệồốổỗộờớởỡợừứửữự]|[ỳỷỹỵ]/i;
 
 const HINTS: Record<string, RegExp> = {
-  vi: /\b(việt nam|viet nam|tiếng việt|lắp pc|giá rẻ|card đồ họa)\b/i,
+  vi: /\b(việt nam|viet nam|tiếng việt|lắp pc|giá rẻ|card đồ họa|chơi game|choi game|game việt|game viet)\b/i,
   fi: /[äöå]|\b(pelikone|suomi|näytönohjain)\b/i,
   sv: /[äöå]|\b(sverige|grafikkort|dator)\b/i,
   de: /[äöüß]|\b(grafikkarte|gaming-pc|gebraucht)\b/i,
@@ -28,18 +28,25 @@ export function looksLikeLanguage(text: string, language: string) {
   return hint.test(text);
 }
 
-/** Strict: a declared channel country must be one of the selected markets. Never keep a US channel for Finland because the title has one local word. */
+/**
+ * Country is a preference, not a hard ISO lock.
+ * YouTube country is often blank or “US” even when the channel makes Vietnamese (etc.)
+ * to reach that audience. Keep those. Drop channels with a different country and no
+ * local-language evidence (so random English “gameplay” hits don’t fill Vietnam).
+ */
 export function matchesSelectedCountries(
   channelCountry: string | null | undefined,
   selected: string[],
-  opts?: { language?: string; text?: string },
+  opts?: { language?: string; text?: string; videoLanguages?: string[] },
 ) {
   if (!selected.length) return true;
   const cc = (channelCountry ?? "").toUpperCase();
   const allow = new Set(selected.map((s) => s.toUpperCase()));
-  if (cc) return allow.has(cc);
-  const lang = opts?.language ?? "en";
+  if (cc && allow.has(cc)) return true;
+  const lang = (opts?.language ?? "en").toLowerCase();
   if (lang === "en") return false;
+  const videoHit = (opts?.videoLanguages ?? []).some((l) => l.toLowerCase().split("-")[0] === lang);
+  if (videoHit) return true;
   return looksLikeLanguage(opts?.text ?? "", lang);
 }
 

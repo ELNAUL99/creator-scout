@@ -28,8 +28,11 @@ export async function twitchDiscoverCreators(
     const market = worldwide
       ? { language: "en", name: "Worldwide" }
       : getMarket(code);
-    // Twitch search matches channel name/title/game; the English niche term works best.
-    const query = dictionaryTerms(niches, "en")[0] ?? req.brief.split(",")[0]?.trim() ?? "gaming";
+    const enTerm = dictionaryTerms(niches, "en")[0] ?? "gaming";
+    const localTerms = dictionaryTerms(niches, market.language);
+    const query = worldwide
+      ? enTerm
+      : localTerms.find((t) => t.toLowerCase() !== enTerm.toLowerCase()) ?? localTerms[0] ?? enTerm;
     const channels = await searchTwitchChannels(query, 30);
     for (const ch of channels) {
       const key = `twitch:${ch.login.toLowerCase()}`;
@@ -62,7 +65,7 @@ export async function twitchDiscoverCreators(
 
   if (creators.length) {
     notes.push(
-      `Twitch Helix live search: ${creators.length} channel(s) matching your niche. Follower counts aren't available via app token — set size to “Any” to keep them.`,
+      `Twitch Helix live search: ${creators.length} channel(s). Follower counts are not on the app token, so size filters do not drop Twitch rows.`,
     );
   } else {
     notes.push(

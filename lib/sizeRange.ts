@@ -32,6 +32,9 @@ export function filterCreatorsBySize(
   sizeMin: number,
   sizeMax: number,
 ): ScoredCreator[] {
-  return creators.filter((c) => followersMatchSize(c.followers, sizeMin, sizeMax));
+  return creators.filter((c) => {
+    if (c.accounts.some((a) => a.platform === "twitch")) return true;
+    return followersMatchSize(c.followers, sizeMin, sizeMax);
+  });
 }
 

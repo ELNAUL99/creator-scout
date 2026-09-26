@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import CheckDropdown from "@/components/CheckDropdown";
 import { LegalNav, SiteFooter } from "@/components/Legal";
 import { matchesSelectedCountries } from "@/lib/localeMatch";
@@ -101,9 +101,6 @@ export default function ScoutApp() {
   const [viewMin, setViewMin] = useState(0);
   const [viewMax, setViewMax] = useState(0);
   const [platforms, setPlatforms] = useState<Platform[]>(["youtube", "tiktok", "instagram", "facebook", "twitch"]);
-  const [searchConfigured, setSearchConfigured] = useState(false);
-  const [instagramConfigured, setInstagramConfigured] = useState(false);
-  const [webDiscover, setWebDiscover] = useState(true);
   const [includePresetCatalog, setIncludePresetCatalog] = useState(true);
   const [includePrenewCollabs, setIncludePrenewCollabs] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -120,16 +117,6 @@ export default function ScoutApp() {
   const [trendsLoading, setTrendsLoading] = useState(false);
   const [trends, setTrends] = useState<RisingResponse | null>(null);
   const [brandWish, setBrandWish] = useState("");
-
-  useEffect(() => {
-    fetch("/api/status")
-      .then((r) => r.json())
-      .then((d: { youtubeConfigured?: boolean; searchConfigured?: boolean; instagramConfigured?: boolean }) => {
-        setSearchConfigured(Boolean(d.searchConfigured));
-        setInstagramConfigured(Boolean(d.instagramConfigured));
-      })
-      .catch(() => {});
-  }, []);
 
   const { visible, hiddenFlagged, hiddenCountry, hiddenSize, hiddenGems } = useMemo(() => {
     if (!result) {
@@ -149,6 +136,9 @@ export default function ScoutApp() {
     let hiddenGems = 0;
     const visible = result.creators.filter((c) => {
       if (ruledOut.includes(c.id)) return false;
+      // Twitch has no follower/view/country data via app token — server already
+      // language-filtered it, so don't drop it on size or country here.
+      const noStats = c.accounts.some((a) => a.platform === "twitch");
       if (gemsOnly && !c.hiddenGem) {
         hiddenGems += 1;
         return false;
@@ -157,22 +147,23 @@ export default function ScoutApp() {
         hiddenFlagged += 1;
         return false;
       }
-      if (!followersMatchSize(c.followers, followerMin, followerMax)) {
+      if (!noStats && !followersMatchSize(c.followers, followerMin, followerMax)) {
         hiddenSize += 1;
         return false;
       }
-      if (viewsRanged) {
+      if (!noStats && viewsRanged) {
         if (c.avgViews <= 0 || c.avgViews < viewMin || c.avgViews > vMax) {
           hiddenSize += 1;
           return false;
         }
       }
-      if (markets.length && !includeOtherCountries) {
+      if (!noStats && markets.length && !includeOtherCountries) {
         const text = `${c.displayName} ${c.recentContent.map((p) => p.titleOrCaption).join(" ")}`;
         const market = MARKETS.find((m) => m.code === c.searchedMarket);
         const local = matchesSelectedCountries(c.country, markets, {
           language: market?.language ?? c.languages[0] ?? "en",
           text,
+          videoLanguages: c.recentContent.map((p) => p.language).filter(Boolean) as string[],
         });
         if (!local) {
           hiddenCountry += 1;
@@ -207,7 +198,7 @@ export default function ScoutApp() {
           timeWindowDays: 90,
           platforms,
           mode: "auto",
-          webDiscover,
+          webDiscover: true,
           includePresetCatalog,
           includePrenewCollabs,
           localOnly: markets.length > 0 && !includeOtherCountries,
@@ -344,7 +335,10 @@ export default function ScoutApp() {
             <p className="text-xs text-muted">No country selected — worldwide. If you pick a country, only that country’s channels are listed.</p>
           )}
           {markets.length > 0 && (
-            <p className="text-xs text-muted">Default: only creators whose YouTube country is {markets.join(", ")}.</p>
+            <p className="text-xs text-muted">
+              Default: creators in {markets.join(", ")} plus channels that clearly make that language (including
+              localised videos aimed at that audience). English-only foreign channels stay out.
+            </p>
           )}
           <div className="space-y-2">
             <p className="text-sm">Brief</p>
@@ -496,10 +490,6 @@ export default function ScoutApp() {
             Include demo catalog (100 fictional creators per TikTok, Instagram, Facebook, Twitch)
           </label>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={webDiscover} onChange={(e) => setWebDiscover(e.target.checked)} />
-            Find extra TikTok / Instagram handles via site: search
-          </label>
-          <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={includePrenewCollabs}
@@ -507,23 +497,6 @@ export default function ScoutApp() {
             />
             Also list Prenew collab-sheet names (Prenew demo only)
           </label>
-          <p className="text-xs text-muted">
-            Connecting TikTok or Instagram only imports the account you logged in as. Those logins cannot search or
-            scrape other people. Facebook/Twitch rows are the labelled demo catalog. Other live TT/IG names come from
-            YouTube links, Scout Lens, or site: search.
-          </p>
-          <p className="text-xs text-muted">
-            {searchConfigured
-              ? "Search API is set. Queries like site:tiktok.com “pelikone” return indexed public profiles."
-              : "Add GOOGLE_CSE_KEY + GOOGLE_CSE_CX (or BRAVE_SEARCH_API_KEY) to .env.local for extra TT/IG handles."}
-            {instagramConfigured
-              ? " Instagram Graph Business Discovery is on for public IG usernames."
-              : " Optional: INSTAGRAM_GRAPH_TOKEN + INSTAGRAM_BUSINESS_ID for live IG stats on discovered handles."}
-          </p>
-          <p className="text-xs text-muted">
-            Untick biggest names to keep the micro/mid shortlist. Search still finds them when the box is on.
-            Load unpacked <code>extension/</code> in Opera (opera://extensions) and open a TikTok profile for the live score card.
-          </p>
           <button
             type="button"
             onClick={run}

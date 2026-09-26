@@ -44,7 +44,7 @@ export const NICHE_TERMS: Record<NicheId, { label: string; terms: TermsByLang }>
       tr: ["oyun videosu", "gameplay"],
       ja: ["実況", "ゲームプレイ"],
       ko: ["게임플레이", "실황"],
-      vi: ["gameplay", "chơi game"],
+      vi: ["chơi game", "gameplay việt", "livestream game"],
     },
   },
   "pc-building": {
@@ -397,6 +397,18 @@ export function dictionaryTerms(niches: NicheId[], language: string): string[] {
     terms.push(...local);
   }
   return [...new Set(terms)].slice(0, 6);
+}
+
+/** Prefer a local-language term so regionCode=VN does not return global “gameplay” English channels. */
+export function youtubeSearchQuery(niches: NicheId[], language: string, countryName?: string) {
+  const local = dictionaryTerms(niches, language);
+  const en = dictionaryTerms(niches, "en");
+  let q = local[0] || en[0] || "gameplay";
+  if (language !== "en" && en[0] && local[0]?.toLowerCase() === en[0].toLowerCase() && local[1]) {
+    q = local[1];
+  }
+  if (countryName && language !== "en") q = `${q} ${countryName}`;
+  return q;
 }
 
 export function englishTerms(niches: NicheId[]): string[] {

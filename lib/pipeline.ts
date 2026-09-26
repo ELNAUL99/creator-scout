@@ -4,7 +4,7 @@ import { llmAvailable, llmFit, llmTranslate } from "./llm";
 import { matchesSelectedCountries } from "./localeMatch";
 import { getMarket } from "./markets";
 import { draftMessage, hoursSaved, ruleReasons } from "./messages";
-import { dictionaryTerms, isNicheId, looksLikePcHardware, nichesFromBrief, shouldExcludePcHardware, buildTermsPerMarket } from "./niches";
+import { dictionaryTerms, isNicheId, looksLikePcHardware, nichesFromBrief, shouldExcludePcHardware, buildTermsPerMarket, youtubeSearchQuery } from "./niches";
 import { sampleDiscover } from "./sample";
 import { scoreCreator, TIER_BENCHMARK } from "./scoring";
 import { connectedOptInCreators } from "./optInCreators";
@@ -300,7 +300,7 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
   if (req.markets.length) {
     notes.push(
       req.localOnly !== false
-        ? "Showing creators whose YouTube country matches your selection. Unknown-country channels only stay if the content is in that language."
+        ? "Keeping channels in the selected country, plus channels that clearly use that language (including localised content aimed at that audience). English-only foreign channels are dropped."
         : "Selected countries are used for local search terms; results can include other countries.",
     );
   } else {
@@ -319,11 +319,14 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
       if (translated?.terms.length) terms.push(...translated.terms);
     }
 
-    const q = [terms[0], req.brand?.pitch?.split(/\s+/).slice(0, 4).join(" ")].filter(Boolean).join(" ") || req.brief.split(",")[0]?.trim() || "gameplay";
+    const q = worldwide
+      ? dictionaryTerms(niches, "en")[0] || req.brief.split(",")[0]?.trim() || "gameplay"
+      : youtubeSearchQuery(niches, market.language, market.name);
     let search = await searchRecentVideos({
       key,
       q,
       regionCode: worldwide ? undefined : market.ytRegion,
+      relevanceLanguage: worldwide ? undefined : market.language,
       order: "relevance",
       maxResults: 50,
     });
@@ -332,7 +335,8 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
       const retry = await searchRecentVideos({
         key,
         q: terms[1],
-        regionCode: worldwide ? undefined : market.ytRegion,
+          regionCode: worldwide ? undefined : market.ytRegion,
+          relevanceLanguage: worldwide ? undefined : market.language,
         order: "relevance",
         maxResults: 50,
       });
@@ -373,6 +377,7 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
         const local = matchesSelectedCountries(channel.country ?? null, req.markets, {
           language: market.language,
           text: blob,
+          videoLanguages: stats.map((s) => s.defaultLanguage).filter(Boolean) as string[],
         });
         if (!local) {
           droppedCountry += 1;
