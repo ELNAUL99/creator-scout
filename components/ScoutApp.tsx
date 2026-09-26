@@ -94,7 +94,6 @@ export default function ScoutApp() {
   const [markets, setMarkets] = useState<string[]>(DEFAULT_MARKETS);
   const [includeNano, setIncludeNano] = useState(true);
   const [includeMacro, setIncludeMacro] = useState(true);
-  const [localOnly, setLocalOnly] = useState(true);
   const [mode, setMode] = useState<"auto" | "sample" | "live">("auto");
   const [youtubeKey, setYoutubeKey] = useState("");
   const [serverHasKey, setServerHasKey] = useState(false);
@@ -134,18 +133,16 @@ export default function ScoutApp() {
       if (!showFlagged && c.flags.length > 0) return false;
       if (!includeNano && c.followers > 0 && c.followers < 10_000) return false;
       if (!includeMacro && c.followers >= 250_000) return false;
-      if (localOnly) {
-        const text = `${c.displayName} ${c.recentContent.map((p) => p.titleOrCaption).join(" ")}`;
-        return belongsToMarket({
-          channelCountry: c.country,
-          targetMarket: c.searchedMarket,
-          language: c.languages[0] ?? "en",
-          text,
-        });
-      }
-      return true;
+      // Always constrain to the selected country: a country search returns only that country.
+      const text = `${c.displayName} ${c.recentContent.map((p) => p.titleOrCaption).join(" ")}`;
+      return belongsToMarket({
+        channelCountry: c.country,
+        targetMarket: c.searchedMarket,
+        language: c.languages[0] ?? "en",
+        text,
+      });
     });
-  }, [result, gemsOnly, showFlagged, includeNano, includeMacro, localOnly]);
+  }, [result, gemsOnly, showFlagged, includeNano, includeMacro]);
 
   async function run() {
     if (mode === "live" && !youtubeKey.trim() && !serverHasKey) {
@@ -275,12 +272,8 @@ export default function ScoutApp() {
             <p className="text-xs text-red-400">Pick at least one country.</p>
           )}
           <p className="text-xs text-zinc-500">
-            Use Clear all, then tick only Vietnam if you want that market alone. YouTube still returns global channels for VN unless local filter is on.
+            Results are limited to the countries you select — a country search returns only creators from that country.
           </p>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={localOnly} onChange={(e) => setLocalOnly(e.target.checked)} />
-            Only creators from the selected country
-          </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={includeNano} onChange={(e) => setIncludeNano(e.target.checked)} />
             Include nano (under 10k)
