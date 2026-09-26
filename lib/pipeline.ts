@@ -8,6 +8,7 @@ import { dictionaryTerms, isNicheId, looksLikePcHardware, nichesFromBrief, shoul
 import { sampleDiscover } from "./sample";
 import { scoreCreator, TIER_BENCHMARK } from "./scoring";
 import { prenewCollabCreators } from "./prenewCollabs";
+import { discoverViaSearchIndex } from "./webDiscover";
 import type { CreatorAccount, DiscoverRequest, DiscoverResponse, MarketTerms, RecentPost, ScoredCreator } from "./types";
 import { fetchChannels, fetchVideos, searchRecentVideos, youtubeUrl, type YtChannel, type YtVideoHit, type YtVideoStats } from "./youtube";
 
