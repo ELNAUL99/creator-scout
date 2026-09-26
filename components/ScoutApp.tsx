@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import CheckDropdown from "@/components/CheckDropdown";
 import { LegalNav, SiteFooter } from "@/components/Legal";
 import { belongsToMarket } from "@/lib/localeMatch";
-import { DEFAULT_MARKETS, MARKET_REGIONS, MARKETS } from "@/lib/markets";
+import { MARKET_REGIONS, MARKETS } from "@/lib/markets";
 import { NICHE_OPTIONS, NICHE_TERMS, type NicheId } from "@/lib/niches";
 import type { DiscoverResponse, ScoredCreator, Platform } from "@/lib/types";
 import { createSupabaseBrowserClient } from "@/lib/supabaseBrowser";
@@ -92,7 +92,7 @@ function latestContentUrl(c: ScoredCreator) {
 
 export default function ScoutApp() {
   const [nicheIds, setNicheIds] = useState<NicheId[]>([]);
-  const [markets, setMarkets] = useState<string[]>(DEFAULT_MARKETS);
+  const [markets, setMarkets] = useState<string[]>([]);
   // Size filters (0 = no limit). Default: no limits — serve any creator size.
   const [followerMin, setFollowerMin] = useState(0);
   const [followerMax, setFollowerMax] = useState(0);
