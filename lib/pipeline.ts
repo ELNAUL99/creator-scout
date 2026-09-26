@@ -435,7 +435,7 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
     brief: req.brief,
     createdAt: new Date().toISOString(),
     mode: "live",
-    termsPerMarket: buildTermsPerMarket(niches),
+    termsPerMarket: buildTermsPerMarket(niches, req.markets),
     creators: allCreators,
     apiUnitsUsed: units,
     hoursSavedEstimate: hoursSaved(allCreators.length),

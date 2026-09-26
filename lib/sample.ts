@@ -461,7 +461,7 @@ export function sampleDiscover(brief: string, markets: string[], nicheIds?: stri
   });
 
   creators.sort((a, b) => b.fit - a.fit);
-  const termsPerMarket = buildTermsPerMarket(wanted.length ? wanted : ["pc-building", "budget-second-hand"]);
+  const termsPerMarket = buildTermsPerMarket(wanted.length ? wanted : ["pc-building", "budget-second-hand"], markets);
 
   return {
     runId: `sample-${Date.now()}`,

@@ -1,5 +1,8 @@
+// Vietnamese-UNIQUE characters only. Deliberately excludes plain Latin diacritics
+// (á à â ã é ê í ó ô õ ú, etc.) that Portuguese/Spanish/French/Italian also use —
+// otherwise a Portuguese title like "INÍCIO … PORTUGUÊS" false-matches Vietnamese.
 const VI_CHARS =
-  /[ăâêôơưđáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/i;
+  /[ăơưđảạẻẽẹỉĩịỏọủũụ]|[ầấẩẫậằắẳẵặềếểễệồốổỗộờớởỡợừứửữự]|[ỳỷỹỵ]/i;
 
 const HINTS: Record<string, RegExp> = {
   vi: /\b(việt nam|viet nam|tiếng việt|lắp pc|giá rẻ|card đồ họa)\b/i,
