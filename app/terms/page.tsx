@@ -46,17 +46,13 @@ export default function TermsPage() {
         </li>
         <li>Instagram metrics: Graph API Business Discovery when you connect a Meta app.</li>
         <li>
-          Scout Lens: scores one profile you already have open in your own browser session, at human
-          pace.
-        </li>
-        <li>
-          Opt-in: a creator may connect with official TikTok or Instagram login, or share a public
-          username with consent.
+          Connect: a creator may sign in with official TikTok or Instagram login. That adds only the
+          account that authenticated.
         </li>
       </ul>
       <p>
-        Production may swap search-engine discovery for a licensed creator-data API. Scoring, Scout
-        Lens, opt-in, and Instagram Business Discovery stay.
+        Production may swap search-engine discovery for a licensed creator-data API. Scoring, Connect,
+        and Instagram Business Discovery stay.
       </p>
 
       <h2 className="text-base font-medium text-foreground pt-2">5. Sample and scores</h2>

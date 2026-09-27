@@ -44,7 +44,9 @@ export function matchesSelectedCountries(
   const allow = new Set(selected.map((s) => s.toUpperCase()));
   if (cc && allow.has(cc)) return true;
   const lang = (opts?.language ?? "en").toLowerCase();
-  if (lang === "en") return false;
+  // English is spoken everywhere — do not treat language as proof of GB/US/AU.
+  // Keep unknown-country channels from that region's search; drop known foreign ISO.
+  if (lang === "en") return !cc;
   const videoHit = (opts?.videoLanguages ?? []).some((l) => l.toLowerCase().split("-")[0] === lang);
   if (videoHit) return true;
   return looksLikeLanguage(opts?.text ?? "", lang);

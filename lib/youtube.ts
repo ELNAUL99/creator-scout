@@ -1,4 +1,5 @@
 import { extractHandles } from "./handles";
+import type { RecentPost } from "./types";
 
 const YT = "https://www.googleapis.com/youtube/v3";
 
@@ -20,8 +21,13 @@ export type YtChannel = {
   subscriberCount: number;
   viewCount: number;
   videoCount: number;
-  startedAt?: string; // channel creation date (snippet.publishedAt)
+  startedAt?: string;
   keywords?: string;
+  uploadsPlaylistId?: string;
+  defaultLanguage?: string;
+  hiddenSubscribers?: boolean;
+  channelMadeForKids?: boolean | null;
+  topics?: string[];
 };
 
 export type YtVideoStats = {
@@ -35,7 +41,52 @@ export type YtVideoStats = {
   comments: number;
   madeForKids: boolean;
   defaultLanguage?: string;
+  durationSeconds?: number | null;
 };
+
+function parseIsoDuration(iso?: string) {
+  if (!iso) return null;
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?/i);
+  if (!m) return null;
+  const sec = Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0);
+  return Number.isFinite(sec) ? Math.round(sec) : null;
+}
+
+function topicLabel(url: string) {
+  try {
+    const last = decodeURIComponent(url.split("/").filter(Boolean).pop() ?? "");
+    return last.replace(/_/g, " ");
+  } catch {
+    return "";
+  }
+}
+
+export function parseChannelKeywords(raw?: string) {
+  if (!raw?.trim()) return [];
+  const out: string[] = [];
+  const re = /"([^"]+)"|(\S+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw))) {
+    const w = (m[1] ?? m[2] ?? "").trim();
+    if (w) out.push(w);
+  }
+  return [...new Set(out)];
+}
+
+export function statsToPost(s: YtVideoStats, lang = "en"): RecentPost {
+  return {
+    postId: s.id,
+    url: `https://www.youtube.com/watch?v=${s.id}`,
+    titleOrCaption: s.title,
+    publishedAt: s.publishedAt || null,
+    views: s.views,
+    likes: s.likes,
+    comments: s.comments,
+    language: s.defaultLanguage ?? lang,
+    madeForKids: s.madeForKids,
+    durationSeconds: s.durationSeconds ?? null,
+  };
+}
 
 async function ytGet<T>(path: string, params: Record<string, string>, key: string): Promise<T> {
   const url = new URL(`${YT}/${path}`);
@@ -178,14 +229,24 @@ export async function fetchChannels(key: string, ids: string[]): Promise<{ items
     type ChRes = {
       items?: {
         id?: string;
-        snippet?: { title?: string; description?: string; customUrl?: string; country?: string; publishedAt?: string };
+        snippet?: {
+          title?: string;
+          description?: string;
+          customUrl?: string;
+          country?: string;
+          publishedAt?: string;
+          defaultLanguage?: string;
+        };
         statistics?: { subscriberCount?: string; viewCount?: string; videoCount?: string; hiddenSubscriberCount?: boolean };
         brandingSettings?: { channel?: { keywords?: string } };
+        contentDetails?: { relatedPlaylists?: { uploads?: string } };
+        topicDetails?: { topicCategories?: string[] };
+        status?: { madeForKids?: boolean };
       }[];
     };
     const data = await ytGet<ChRes>(
       "channels",
-      { part: "snippet,statistics,brandingSettings", id: batch.join(",") },
+      { part: "snippet,statistics,brandingSettings,contentDetails,topicDetails,status", id: batch.join(",") },
       key,
     );
     units += 1;
@@ -202,6 +263,11 @@ export async function fetchChannels(key: string, ids: string[]): Promise<{ items
         videoCount: num(ch.statistics?.videoCount),
         startedAt: ch.snippet?.publishedAt,
         keywords: ch.brandingSettings?.channel?.keywords,
+        uploadsPlaylistId: ch.contentDetails?.relatedPlaylists?.uploads,
+        defaultLanguage: ch.snippet?.defaultLanguage,
+        hiddenSubscribers: Boolean(ch.statistics?.hiddenSubscriberCount),
+        channelMadeForKids: typeof ch.status?.madeForKids === "boolean" ? ch.status.madeForKids : null,
+        topics: (ch.topicDetails?.topicCategories ?? []).map(topicLabel).filter(Boolean),
       });
     }
   }
@@ -220,11 +286,12 @@ export async function fetchVideos(key: string, ids: string[]): Promise<{ items: 
         snippet?: { title?: string; description?: string; publishedAt?: string; channelId?: string; defaultLanguage?: string; defaultAudioLanguage?: string };
         statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
         status?: { madeForKids?: boolean; selfDeclaredMadeForKids?: boolean };
+        contentDetails?: { duration?: string };
       }[];
     };
     const data = await ytGet<VRes>(
       "videos",
-      { part: "snippet,statistics,status", id: batch.join(",") },
+      { part: "snippet,statistics,status,contentDetails", id: batch.join(",") },
       key,
     );
     units += 1;
@@ -241,10 +308,73 @@ export async function fetchVideos(key: string, ids: string[]): Promise<{ items: 
         comments: num(v.statistics?.commentCount),
         madeForKids: Boolean(v.status?.madeForKids || v.status?.selfDeclaredMadeForKids),
         defaultLanguage: v.snippet?.defaultAudioLanguage ?? v.snippet?.defaultLanguage,
+        durationSeconds: parseIsoDuration(v.contentDetails?.duration),
       });
     }
   }
   return { items, units };
+}
+
+/** Newest videos on a channel. playlistItems.list is 1 unit (not 100 like search.list). */
+export async function fetchRecentUploads(
+  key: string,
+  channels: { channelId: string; playlistId?: string }[],
+  maxPerChannel = 50,
+): Promise<{
+  byChannel: Map<string, { videoId: string; title: string; publishedAt: string }[]>;
+  units: number;
+}> {
+  const byChannel = new Map<string, { videoId: string; title: string; publishedAt: string }[]>();
+  let units = 0;
+  type PlRes = {
+    items?: {
+      snippet?: {
+        title?: string;
+        publishedAt?: string;
+        resourceId?: { videoId?: string };
+      };
+    }[];
+  };
+  const jobs = channels.filter((c) => c.playlistId);
+  const CONCURRENCY = 8;
+  for (let i = 0; i < jobs.length; i += CONCURRENCY) {
+    const batch = jobs.slice(i, i + CONCURRENCY);
+    const results = await Promise.all(
+      batch.map(async (c) => {
+        try {
+          const data = await ytGet<PlRes>(
+            "playlistItems",
+            {
+              part: "snippet",
+              playlistId: c.playlistId!,
+              maxResults: String(maxPerChannel),
+            },
+            key,
+          );
+          const items: { videoId: string; title: string; publishedAt: string }[] = [];
+          const seen = new Set<string>();
+          for (const it of data.items ?? []) {
+            const videoId = it.snippet?.resourceId?.videoId;
+            if (!videoId || seen.has(videoId)) continue;
+            seen.add(videoId);
+            items.push({
+              videoId,
+              title: it.snippet?.title ?? "",
+              publishedAt: it.snippet?.publishedAt ?? "",
+            });
+          }
+          return { channelId: c.channelId, items, units: 1 };
+        } catch {
+          return { channelId: c.channelId, items: [], units: 1 };
+        }
+      }),
+    );
+    for (const r of results) {
+      units += r.units;
+      if (r.items.length) byChannel.set(r.channelId, r.items);
+    }
+  }
+  return { byChannel, units };
 }
 
 export async function fetchMostPopular(opts: {

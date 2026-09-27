@@ -473,7 +473,7 @@ export function sampleDiscover(brief: string, markets: string[], nicheIds?: stri
     hoursSavedEstimate: hoursSaved(creators.length),
     notes: [
       "SAMPLE DATA — fictional profiles labelled as sample. Do not treat as real creators.",
-      "YouTube is fully live when YOUTUBE_API_KEY is set. TikTok/Instagram discovery uses search-engine site: queries, Instagram Graph Business Discovery, Scout Lens, and YouTube-linked handles — never fake logins or platform scraping.",
+      "YouTube is fully live when YOUTUBE_API_KEY is set. TikTok/Instagram use search-engine site: queries, Instagram Graph when connected, YouTube-linked handles, and official Connect — never fake logins or platform scraping.",
     ],
   };
 }

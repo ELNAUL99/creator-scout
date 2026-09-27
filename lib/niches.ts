@@ -445,15 +445,17 @@ export function youtubeSearchPlan(
     }
   }
 
-  for (const term of en) {
-    add(term, "en");
-    for (const place of places) add(`${term} ${place}`, "en");
-  }
+  // Local + place first (quota only runs the first ~12 video searches).
+  // Otherwise English "gameplay Finland" consumes the budget before "pelivideo Suomi".
   if (language !== "en") {
     for (const term of local) {
-      add(term, language);
       for (const place of places) add(`${term} ${place}`, language);
+      add(term, language);
     }
+  }
+  for (const term of en) {
+    for (const place of places) add(`${term} ${place}`, "en");
+    add(term, "en");
   }
   return out;
 }

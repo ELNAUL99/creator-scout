@@ -14,29 +14,29 @@ export async function POST(req: Request) {
     if (!nicheIds.length) {
       return NextResponse.json({ error: "niche is required" }, { status: 400 });
     }
-    const brief = [
-      nicheIds.map((id) => NICHE_TERMS[id].label).join(", "),
-      (body.brand?.pitch ?? "").trim(),
-    ]
-      .filter(Boolean)
-      .join(". ");
+    const pitch = (body.brand?.pitch ?? "").trim();
+    const brief =
+      (body.brief ?? "").trim() ||
+      [nicheIds.map((id) => NICHE_TERMS[id].label).join(", "), pitch].filter(Boolean).join(". ");
     const result = await runDiscover({
       brief,
       markets: body.markets ?? [],
       nicheIds,
       nicheId: body.nicheId,
-      sizeMin: body.sizeMin ?? 10_000,
-      sizeMax: body.sizeMax ?? 250_000,
+      sizeMin: body.sizeMin ?? 0,
+      sizeMax: body.sizeMax ?? 100_000_000,
       includeNano: body.includeNano ?? true,
       includeMacro: body.includeMacro ?? true,
       timeWindowDays: body.timeWindowDays ?? 90,
-      platforms: body.platforms?.length ? body.platforms : ["youtube", "tiktok", "instagram"],
+      platforms: body.platforms?.length
+        ? body.platforms
+        : ["youtube", "tiktok", "instagram", "facebook", "twitch"],
       brand: body.brand,
       mode: body.mode ?? "auto",
       youtubeApiKey: body.youtubeApiKey,
       webDiscover: body.webDiscover !== false,
       includePrenewCollabs: Boolean(body.includePrenewCollabs),
-      includePresetCatalog: body.includePresetCatalog !== false,
+      includePresetCatalog: Boolean(body.includePresetCatalog),
       localOnly: body.localOnly !== false,
     });
     return NextResponse.json(result);

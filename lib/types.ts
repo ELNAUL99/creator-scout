@@ -30,6 +30,25 @@ export type RecentPost = {
   comments: number | null;
   language: string | null;
   madeForKids: boolean;
+  durationSeconds?: number | null;
+};
+
+export type YoutubeResearch = {
+  pulledAt: string;
+  channelId: string;
+  description: string;
+  customUrl: string | null;
+  defaultLanguage: string | null;
+  keywords: string[];
+  topics: string[];
+  lifetimeViews: number;
+  videoCount: number;
+  hiddenSubscribers: boolean;
+  channelMadeForKids: boolean | null;
+  startedAt: string | null;
+  subscriberCount: number;
+  latestUploads: RecentPost[];
+  searchMatched: RecentPost[];
 };
 
 export type ScoredCreator = {
@@ -63,6 +82,7 @@ export type ScoredCreator = {
   dataDate: string;
   dataSource: string;
   searchedMarket: string;
+  youtube?: YoutubeResearch;
 };
 
 export type BrandProfile = {
@@ -93,7 +113,7 @@ export type DiscoverRequest = {
   workspaceId?: string | null;
   /** Off by default. Sheet is collab history, not live discovery. */
   includePrenewCollabs?: boolean;
-  /** Demo catalog of fictional TT/IG/FB/Twitch creators. Default on. */
+  /** Demo catalog of fictional TT/IG/FB/Twitch creators. Default off. */
   includePresetCatalog?: boolean;
   /** When true, drop YouTube channels that don’t look like the selected country. */
   localOnly?: boolean;

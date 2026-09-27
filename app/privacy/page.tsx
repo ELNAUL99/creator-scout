@@ -60,11 +60,6 @@ export default function PrivacyPage() {
               <td className="p-2">Public username, display name, consent time</td>
               <td className="p-2">Store a consented record</td>
             </tr>
-            <tr className="border-t border-border">
-              <td className="p-2">Scout Lens</td>
-              <td className="p-2">Visible name, bio, follower/like counts, captions on the tab you opened</td>
-              <td className="p-2">Score that one profile</td>
-            </tr>
           </tbody>
         </table>
       </div>
@@ -75,9 +70,8 @@ export default function PrivacyPage() {
 
       <h2 className="text-base font-medium text-foreground pt-2">3. Why we process it (EU/EEA)</h2>
       <p>
-        Legitimate interest: public professional content for B2B creator discovery. Consent: opt-in
-        and Scout Lens sending on-screen data to the local app. Your own API keys: so the Service
-        can call APIs you chose.
+        Legitimate interest: public professional content for B2B creator discovery. Consent: Connect
+        / opt-in. Your own API keys: so the Service can call APIs you chose.
       </p>
 
       <h2 className="text-base font-medium text-foreground pt-2">4. Storage and sharing</h2>
@@ -88,27 +82,20 @@ export default function PrivacyPage() {
         feature that calls them. We do not send outreach on your behalf.
       </p>
 
-      <h2 className="text-base font-medium text-foreground pt-2">5. Scout Lens</h2>
-      <p>
-        The extension runs on TikTok and Instagram profile URLs you visit. It posts visible page
-        text to <code>http://localhost:3000</code> on your machine. It does not crawl other profiles
-        in the background.
-      </p>
-
-      <h2 className="text-base font-medium text-foreground pt-2">6. Retention and rights</h2>
+      <h2 className="text-base font-medium text-foreground pt-2">5. Retention and rights</h2>
       <p>
         Demo data lasts until you delete local files or stop the app. Opt-in lasts until you or the
         creator ask for deletion. You and opted-in creators may request access, correction, or
         deletion, and may withdraw opt-in consent at any time.
       </p>
 
-      <h2 className="text-base font-medium text-foreground pt-2">7. Children and transfers</h2>
+      <h2 className="text-base font-medium text-foreground pt-2">6. Children and transfers</h2>
       <p>
         The Service is not directed at children. If you use US-based APIs, some data may leave the
         EEA under those providers’ terms.
       </p>
 
-      <h2 className="text-base font-medium text-foreground pt-2">8. Changes</h2>
+      <h2 className="text-base font-medium text-foreground pt-2">7. Changes</h2>
       <p>
         If Creator Scout moves to a hosted backend or a licensed data API, we will update this page.
         The current version is always at <a className="text-accent-text" href="/privacy">/privacy</a>.

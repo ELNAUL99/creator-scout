@@ -30,9 +30,6 @@ export function LegalShell({
 export function LegalNav() {
   return (
     <nav className="flex flex-wrap gap-4 text-sm text-muted">
-      <a className="hover:text-white" href="/lens">
-        Scout Lens
-      </a>
       <a className="hover:text-white" href="/opt-in">
         Connect TikTok / Instagram
       </a>

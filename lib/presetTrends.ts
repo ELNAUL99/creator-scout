@@ -30,7 +30,6 @@ export function presetRisingTrends(): {
       viewsPerSub: followers > 0 ? views / followers : views,
       breakout: views >= followers * 4,
       tags: ["glassskin"],
-      needsLens: false,
     };
   });
   const byTag = MAKEUP_TAGS.map((label, idx) => ({

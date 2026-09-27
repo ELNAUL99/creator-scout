@@ -1,24 +1,59 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { buildCreatorDossier, snapshotLine } from "@/lib/creatorDossier";
-import type { ScoredCreator } from "@/lib/types";
+import type { ScoredCreator, YoutubeResearch } from "@/lib/types";
 
 const PROMPTS = [
   "How well known are they?",
   "How recent is the last upload?",
-  "What's the peak view in this sample?",
+  "What's their average time between uploads?",
   "What have they posted lately?",
 ];
 
 type Turn = { role: "user" | "assistant"; content: string };
 
 export default function CreatorFollowUp({ creator }: { creator: ScoredCreator }) {
-  const dossier = useMemo(() => buildCreatorDossier(creator), [creator]);
+  const [youtube, setYoutube] = useState<YoutubeResearch | undefined>(creator.youtube);
+  const hydrated: ScoredCreator = useMemo(
+    () =>
+      youtube
+        ? {
+            ...creator,
+            youtube,
+            recentContent: youtube.latestUploads,
+            totalVideos: youtube.videoCount || creator.totalVideos,
+            startedAt: youtube.startedAt ?? creator.startedAt,
+            followers: youtube.hiddenSubscribers ? creator.followers : youtube.subscriberCount || creator.followers,
+          }
+        : creator,
+    [creator, youtube],
+  );
+  const dossier = useMemo(() => buildCreatorDossier(hydrated), [hydrated]);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/youtube-research", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ channelId: creator.id, fallback: creator.youtube ?? null }),
+        });
+        const data = (await res.json()) as { youtube?: YoutubeResearch };
+        if (!cancelled && data.youtube) setYoutube(data.youtube);
+      } catch {
+        /* keep card payload until ask() hydrates on the server */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [creator.id]);
 
   async function ask(question: string) {
     const q = question.trim();
@@ -32,7 +67,7 @@ export default function CreatorFollowUp({ creator }: { creator: ScoredCreator })
       const res = await fetch("/api/creator-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ creator, history: turns, question: q }),
+        body: JSON.stringify({ creator: hydrated, history: turns, question: q }),
       });
       const data = (await res.json()) as { answer?: string; error?: string };
       if (!res.ok) throw new Error(data.error || "Follow-up failed");
@@ -83,7 +118,7 @@ export default function CreatorFollowUp({ creator }: { creator: ScoredCreator })
       >
         <input
           className="flex-1 text-xs bg-surface-2 border border-border rounded px-2 py-1.5"
-          placeholder="Ask anything — fame, last upload, titles…"
+          placeholder="Ask last upload, average gap, video length…"
           value={input}
           disabled={loading}
           onChange={(e) => setInput(e.target.value)}

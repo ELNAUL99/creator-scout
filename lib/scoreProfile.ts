@@ -3,6 +3,19 @@ import { draftMessage, ruleReasons } from "./messages";
 import { scoreCreator } from "./scoring";
 import type { BrandProfile, Platform, ScoredCreator } from "./types";
 
+function dataSourceLabel(platform: Platform, source: ScoredCreator["accounts"][0]["source"]) {
+  if (source === "web") return "Search-engine index (site: query) — not platform scraping";
+  if (source === "api") {
+    if (platform === "twitch") return "Twitch Helix Search API";
+    if (platform === "instagram") return "Instagram Graph API Business Discovery";
+    if (platform === "youtube") return "YouTube Data API v3";
+    return "Official platform API";
+  }
+  if (source === "linked") return "Handle linked from another platform (not a crawl)";
+  if (source === "opt_in") return "Creator opt-in / connected account";
+  return "Connected account";
+}
+
 export function scoreVisibleProfile(input: {
   name: string;
   platform: Platform;
@@ -101,12 +114,7 @@ export function scoreVisibleProfile(input: {
     }),
     hiddenGem: scored.hiddenGem,
     dataDate: new Date().toISOString().slice(0, 10),
-    dataSource:
-      input.source === "web"
-        ? "Search-engine index (site: query) — not platform scraping"
-        : input.source === "api"
-          ? "Instagram Graph API Business Discovery"
-          : "Scout Lens (visible profile in your browser)",
+    dataSource: dataSourceLabel(input.platform, input.source),
     searchedMarket: input.market,
   };
   return creator;

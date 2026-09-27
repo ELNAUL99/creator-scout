@@ -36,7 +36,7 @@ export const COMMON_DISCLOSURE_TAGS: Record<string, string> = {
   vi: "#quảngcáo",
 };
 
-/** Used when search/Lens has no advertiser name — niche + brief only. */
+/** Used when search has no advertiser name — niche/brief only. */
 export const GENERIC_BRAND: BrandProfile = {
   name: "",
   pitch: "",

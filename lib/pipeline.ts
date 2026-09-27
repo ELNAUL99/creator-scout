@@ -4,13 +4,21 @@ import { llmAvailable, llmFit, llmTranslate } from "./llm";
 import { matchesSelectedCountries } from "./localeMatch";
 import { countrySearchLabels, getMarket } from "./markets";
 import { draftMessage, hoursSaved, ruleReasons } from "./messages";
-import { dictionaryTerms, isNicheId, nichesFromBrief, buildTermsPerMarket, youtubeSearchPlan } from "./niches";
+import {
+  dictionaryTerms,
+  isNicheId,
+  looksLikePcHardware,
+  nichesFromBrief,
+  buildTermsPerMarket,
+  NICHE_TERMS,
+  shouldExcludePcHardware,
+  youtubeSearchPlan,
+} from "./niches";
 import { sampleDiscover } from "./sample";
 import { scoreCreator, TIER_BENCHMARK } from "./scoring";
 import { connectedOptInCreators } from "./optInCreators";
 import { getIgConnection } from "./igConnectionStore";
 import { businessDiscovery, envIgAuth } from "./instagram";
-import { lensCaptureCreators } from "./lensCreators";
 import { prenewCollabCreators } from "./prenewCollabs";
 import { presetCatalogCreators } from "./presetCatalog";
 import { scoreVisibleProfile } from "./scoreProfile";
@@ -18,8 +26,21 @@ import { filterCreatorsBySize, followersMatchSize, sizeRangeActive } from "./siz
 import { discoverViaSearchIndex } from "./webDiscover";
 import { twitchDiscoverCreators } from "./twitchCreators";
 import { twitchConfigured } from "./twitch";
+import { saveYoutubeResearch } from "./youtubeStore";
+import { buildYoutubeResearch } from "./youtubeResearch";
 import type { CreatorAccount, DiscoverRequest, DiscoverResponse, MarketTerms, RecentPost, ScoredCreator } from "./types";
-import { fetchChannels, fetchVideos, searchChannels, searchRecentVideos, youtubeUrl, type YtChannel, type YtVideoHit, type YtVideoStats } from "./youtube";
+import {
+  fetchChannels,
+  fetchRecentUploads,
+  fetchVideos,
+  searchChannels,
+  searchRecentVideos,
+  statsToPost,
+  youtubeUrl,
+  type YtChannel,
+  type YtVideoHit,
+  type YtVideoStats,
+} from "./youtube";
 
 function youtubeKey(reqKey?: string) {
   const fromEnv = (process.env.YOUTUBE_API_KEY ?? "").trim();
@@ -85,7 +106,6 @@ async function expandSocialsFromYoutube(req: DiscoverRequest, fromYt: ScoredCrea
         if (ig) igLookedUp += 1;
         const followers = ig?.followers ?? 0;
         if (followers > 0 && !followersMatchSize(followers, req.sizeMin, req.sizeMax)) continue;
-        if (followers <= 0 && sizeRangeActive(req.sizeMin, req.sizeMax)) continue;
         extra.push(
           scoreVisibleProfile({
             name: ig?.name ?? handle,
@@ -111,7 +131,6 @@ async function expandSocialsFromYoutube(req: DiscoverRequest, fromYt: ScoredCrea
         const key = `tiktok:${handle.toLowerCase()}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        if (sizeRangeActive(req.sizeMin, req.sizeMax)) continue;
         extra.push(
           scoreVisibleProfile({
             name: handle,
@@ -153,7 +172,7 @@ async function expandSocialsFromYoutube(req: DiscoverRequest, fromYt: ScoredCrea
   }
   if (wantTt) {
     notes.push(
-      "TikTok Login Kit only returns the account you signed in with. There is no official TikTok search/crawl for other creators — use Scout Lens on a profile, or site: search if a search API key is set.",
+      "TikTok Login Kit only returns the account you signed in with. There is no official TikTok search for other creators — Connect that account, or use site: search if a search API key is set.",
     );
   }
   return { extra, notes };
@@ -163,19 +182,11 @@ async function attachLiveSources(req: DiscoverRequest, result: DiscoverResponse)
   let creators = [...result.creators];
   let notes = [...result.notes];
   const platforms = req.platforms?.length ? req.platforms : ["youtube", "tiktok", "instagram"];
-  const restrictCountry = Boolean(req.markets.length && req.localOnly !== false);
+  const socials = await expandSocialsFromYoutube(req, creators);
+  creators = mergeCreators(creators, socials.extra);
+  notes = [...notes, ...socials.notes];
 
-  if (!restrictCountry) {
-    const socials = await expandSocialsFromYoutube(req, creators);
-    creators = mergeCreators(creators, socials.extra);
-    notes = [...notes, ...socials.notes];
-  }
-
-  if (
-    req.webDiscover !== false &&
-    (platforms.includes("tiktok") || platforms.includes("instagram")) &&
-    !restrictCountry
-  ) {
+  if (req.webDiscover !== false && (platforms.includes("tiktok") || platforms.includes("instagram"))) {
     const web = await discoverViaSearchIndex(req);
     creators = mergeCreators(creators, web.creators);
     notes = [...notes, ...web.notes];
@@ -201,13 +212,7 @@ async function attachLiveSources(req: DiscoverRequest, result: DiscoverResponse)
     );
   }
 
-  const lens = await lensCaptureCreators(req);
-  if (lens.length) {
-    creators = mergeCreators(creators, lens);
-    notes.push(`Included ${lens.length} Scout Lens capture(s) from profiles you opened in the browser.`);
-  }
-
-  if (req.includePresetCatalog !== false) {
+  if (req.includePresetCatalog) {
     const preset = presetCatalogCreators(req);
     if (preset.length) {
       creators = mergeCreators(creators, preset);
@@ -230,7 +235,7 @@ async function attachLiveSources(req: DiscoverRequest, result: DiscoverResponse)
 
   creators = filterCreatorsBySize(creators, req.sizeMin, req.sizeMax).sort((a, b) => b.fit - a.fit);
   notes.unshift(
-    "YouTube is live API search. TikTok/Instagram/Facebook/Twitch catalog rows are a labelled demo preset unless you also have site:, Graph, Lens, or Connect. Connect is still not a crawl.",
+    "YouTube is live API search. TikTok and Instagram only appear via Connect (the account that signed in), site: search if configured, or the labelled demo catalog. Connect is not a crawl.",
   );
   return {
     ...result,
@@ -260,7 +265,7 @@ export async function runDiscover(req: DiscoverRequest): Promise<DiscoverRespons
           emptyLive(req, [
             "YouTube search.list is blocked on this API key — live YouTube discovery cannot run until Google Cloud allows it.",
             "Enable YouTube Data API v3, API restrictions = YouTube Data API v3 (or unrestricted), Application restrictions = None (or IP) for this server.",
-            "Not substituting the collab sheet or sample channels. Connected TikTok/Instagram, Lens, and site: search still run.",
+            "Not substituting the collab sheet or sample channels. Connected TikTok/Instagram and site: search still run.",
           ]),
         );
         blocked.error = message;
@@ -273,7 +278,7 @@ export async function runDiscover(req: DiscoverRequest): Promise<DiscoverRespons
           req,
           emptyLive(req, [
             "YouTube daily search quota is used up (10,000 units/day; each search costs 100). Live YouTube discovery pauses until the quota resets (~midnight US Pacific).",
-            "Twitch, connected accounts, Scout Lens, and demo catalog still run. Request a higher YouTube quota in Google Cloud, or use a second API key, to raise the daily limit.",
+            "Twitch, connected accounts, and demo catalog still run. Request a higher YouTube quota in Google Cloud, or use a second API key, to raise the daily limit.",
           ]),
         );
         return quota;
@@ -306,7 +311,7 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
   const seen = new Set<string>();
 
   notes.push(
-    "Search uses your niche plus a short brief. Full brand name / business / references are scored on Scout Lens, not this list.",
+    "Search uses your niche plus a short brief. Scoring uses the YouTube channel we pulled, not a separate brand page.",
   );
 
   if (req.markets.length) {
@@ -326,8 +331,9 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
       ? { code: "WW", language: "en", ytRegion: "", name: "Worldwide", languageName: "English" }
       : getMarket(code);
     const terms = dictionaryTerms(niches, market.language);
-    if (llmAvailable() && fromIds.length === 0 && req.brand?.pitch) {
-      const translated = await llmTranslate(req.brand.pitch, market.name, market.languageName);
+    const userQ = (req.brand?.pitch ?? req.brief ?? "").trim();
+    if (llmAvailable() && userQ && market.language !== "en") {
+      const translated = await llmTranslate(userQ, market.name, market.languageName);
       if (translated?.terms.length) terms.push(...translated.terms);
     }
 
@@ -344,7 +350,6 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
       }
     };
 
-    const userQ = (req.brand?.pitch ?? "").trim();
     const plan = worldwide
       ? youtubeSearchPlan(niches, "en", undefined, userQ)
       : youtubeSearchPlan(niches, market.language, countrySearchLabels(market), userQ);
@@ -359,6 +364,8 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
     const CHANNEL_TARGET = 500;
     const MAX_VIDEO_CALLS = 12;
     const MAX_CHANNEL_CALLS = 6;
+    const days = Math.max(1, req.timeWindowDays || 90);
+    const publishedAfter = new Date(Date.now() - days * 86_400_000).toISOString();
     let videoCalls = 0;
     let channelCalls = 0;
 
@@ -371,6 +378,7 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
         q: step.q,
         regionCode,
         relevanceLanguage: step.relevanceLanguage,
+        publishedAfter,
         order: "relevance",
         maxResults: 50,
       });
@@ -389,6 +397,7 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
         q: plan[i].q,
         regionCode,
         relevanceLanguage: plan[i].relevanceLanguage,
+        publishedAfter,
         order: "relevance",
         maxResults: 50,
         pageToken: token,
@@ -426,41 +435,86 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
     const marketCreators: ScoredCreator[] = [];
     let droppedSize = 0;
     let droppedCountry = 0;
+    let droppedHardware = 0;
+    const dropHardware = shouldExcludePcHardware(niches);
+    type Keep = { channelId: string; channel: YtChannel; hits: YtVideoHit[]; searchStats: YtVideoStats[] };
+    const keep: Keep[] = [];
     for (const [channelId, hits] of grouped) {
       if (seen.has(channelId)) continue;
       const channel = channelById.get(channelId);
       if (!channel) continue;
-      const stats = hits.map((h) => videoById.get(h.videoId)).filter(Boolean) as YtVideoStats[];
+      const searchStats = hits.map((h) => videoById.get(h.videoId)).filter(Boolean) as YtVideoStats[];
       const followers = channel.subscriberCount;
       if (!followersMatchSize(followers, req.sizeMin, req.sizeMax)) {
         droppedSize += 1;
         continue;
       }
-      const blob = `${channel.title} ${channel.description} ${hits.map((h) => h.title).join(" ")} ${stats.map((s) => s.title).join(" ")}`;
+      const blob = `${channel.title} ${channel.description} ${hits.map((h) => h.title).join(" ")} ${searchStats.map((s) => s.title).join(" ")}`;
+      if (dropHardware && looksLikePcHardware(blob)) {
+        droppedHardware += 1;
+        continue;
+      }
       if (restrictCountry) {
         const local = matchesSelectedCountries(channel.country ?? null, req.markets, {
           language: market.language,
           text: blob,
-          videoLanguages: stats.map((s) => s.defaultLanguage).filter(Boolean) as string[],
+          videoLanguages: searchStats.map((s) => s.defaultLanguage).filter(Boolean) as string[],
         });
         if (!local) {
           droppedCountry += 1;
           continue;
         }
       }
-
       seen.add(channelId);
-      const creator = buildCreator({
-        channel,
-        stats,
-        hits,
-        briefTerms: [...new Set([...terms, ...dictionaryTerms(niches, "en"), ...brand.goodFitWords.slice(0, 10)])],
-        marketCode: worldwide ? "WW" : code,
-        marketLang: market.language,
-        brand,
-        dataDate: new Date().toISOString().slice(0, 10),
-      });
-      marketCreators.push(creator);
+      keep.push({ channelId, channel, hits, searchStats });
+    }
+
+    // Search hits are relevance matches, not "latest on the channel".
+    // playlistItems.list is 1 unit and returns newest uploads for recency.
+    const uploadRes = await fetchRecentUploads(
+      key,
+      keep.map((k) => ({ channelId: k.channelId, playlistId: k.channel.uploadsPlaylistId })),
+      50,
+    );
+    units += uploadRes.units;
+    const extraVideoIds: string[] = [];
+    for (const items of uploadRes.byChannel.values()) {
+      for (const it of items) {
+        if (!videoById.has(it.videoId)) extraVideoIds.push(it.videoId);
+      }
+    }
+    if (extraVideoIds.length) {
+      const extra = await fetchVideos(key, extraVideoIds);
+      units += extra.units;
+      for (const v of extra.items) videoById.set(v.id, v);
+    }
+
+    for (const row of keep) {
+      const uploads = uploadRes.byChannel.get(row.channelId) ?? [];
+      const uploadStats = uploads.map((u) => videoById.get(u.videoId)).filter(Boolean) as YtVideoStats[];
+      marketCreators.push(
+        buildCreator({
+          channel: row.channel,
+          stats: uploadStats.length ? uploadStats : row.searchStats,
+          searchStats: row.searchStats,
+          hits: uploads.length
+            ? uploads.map((u) => ({
+                videoId: u.videoId,
+                channelId: row.channelId,
+                channelTitle: row.channel.title,
+                title: u.title,
+                description: "",
+                publishedAt: u.publishedAt,
+              }))
+            : row.hits,
+          briefTerms: [...new Set([...terms, ...dictionaryTerms(niches, "en"), ...brand.goodFitWords.slice(0, 10)])],
+          marketCode: worldwide ? "WW" : code,
+          marketLang: market.language,
+          brand,
+          nicheLabels: niches.map((id) => NICHE_TERMS[id].label),
+          dataDate: new Date().toISOString().slice(0, 10),
+        }),
+      );
     }
 
     marketCreators.sort((a, b) => b.fit - a.fit);
@@ -501,17 +555,24 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
     }
     allCreators.push(...marketCreators);
     notes.push(
-      `${code}: YouTube ${plan.map((s) => `“${s.q}”`).join(" + ")} → ${grouped.size} channels, ${marketCreators.length} in the selected subscriber range` +
+      `${code}: YouTube ${plan
+          .slice(0, Math.min(plan.length, MAX_VIDEO_CALLS))
+          .map((s) => `“${s.q}”`)
+          .join(" + ")}${plan.length > MAX_VIDEO_CALLS ? ` (+${plan.length - MAX_VIDEO_CALLS} more keywords not queried this run)` : ""} → ${grouped.size} channels, ${marketCreators.length} in the selected subscriber range` +
         (droppedSize
           ? `, ${droppedSize} other YouTube hits were outside ${req.sizeMin.toLocaleString()}–${sizeRangeActive(req.sizeMin, req.sizeMax) ? `${req.sizeMax.toLocaleString()}` : "any"} (mega/nano — not the missing mid-tier names)`
           : "") +
         (droppedCountry ? `, ${droppedCountry} failed country/language check` : "") +
+        (droppedHardware ? `, ${droppedHardware} looked like PC-hardware (not the selected play niche)` : "") +
         ".",
     );
   }
 
   allCreators.sort((a, b) => b.fit - a.fit);
+  const stored = allCreators.flatMap((c) => (c.youtube ? [c.youtube] : []));
+  if (stored.length) await saveYoutubeResearch(stored);
   notes.push("YouTube Data API has no subscriber filter. Scout asks for videos/channels matching your brief, then keeps those whose listed subscriber count is in range. A 90k creator is not dropped for size unless YouTube returned them with a count outside that range — if they never appear, they were not in YouTube’s search hits.");
+  notes.push(`Stored the full channel record plus up to 50 newest uploads for ${stored.length} YouTube creator(s). Follow-ups use that store, not the keyword-search sample.`);
   notes.push("No messages are sent automatically. Marketer must edit and send.");
   if (!llmAvailable()) notes.push("OPENAI_API_KEY missing — query translation used the niche dictionary; fit is rules-only.");
 
@@ -528,14 +589,24 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
   };
 }
 
+function videoToPost(s: YtVideoStats, lang: string): RecentPost {
+  return statsToPost(s, lang);
+}
+
+function byNewest(posts: RecentPost[]) {
+  return [...posts].sort((a, b) => Date.parse(b.publishedAt ?? "") - Date.parse(a.publishedAt ?? "") || 0);
+}
+
 function buildCreator(opts: {
   channel: YtChannel;
   stats: YtVideoStats[];
+  searchStats: YtVideoStats[];
   hits: YtVideoHit[];
   briefTerms: string[];
   marketCode: string;
   marketLang: string;
   brand: ReturnType<typeof mergeBrand>;
+  nicheLabels: string[];
   dataDate: string;
 }): ScoredCreator {
   const { channel, stats, hits } = opts;
@@ -546,11 +617,12 @@ function buildCreator(opts: {
     .map((s) => (s.publishedAt ? new Date(s.publishedAt) : null))
     .filter(Boolean)
     .sort((a, b) => (b as Date).getTime() - (a as Date).getTime())[0] as Date | undefined;
-  const madeForKids = stats.some((s) => s.madeForKids);
+  const madeForKids = Boolean(channel.channelMadeForKids) || stats.some((s) => s.madeForKids);
   const text = `${channel.title} ${channel.description} ${channel.keywords ?? ""} ${stats.map((s) => s.title).join(" ")}`;
   const contentLangMatch =
     stats.some((s) => (s.defaultLanguage ?? "").toLowerCase().startsWith(opts.marketLang)) ||
-    (channel.country ?? "").toUpperCase() === opts.marketCode;
+    (channel.country ?? "").toUpperCase() === opts.marketCode ||
+    (channel.defaultLanguage ?? "").toLowerCase().startsWith(opts.marketLang);
   const scored = scoreCreator({
     briefTerms: opts.briefTerms,
     text,
@@ -598,22 +670,30 @@ function buildCreator(opts: {
       source: "linked",
     });
   }
-  const posts: RecentPost[] = (stats.length ? stats : hits).map((s) => {
-    const asStats = "views" in s ? (s as YtVideoStats) : null;
-    const asHit = "videoId" in s ? (s as YtVideoHit) : null;
-    const id = asStats?.id ?? asHit?.videoId ?? "";
-    return {
-      postId: id,
-      url: `https://www.youtube.com/watch?v=${id}`,
-      titleOrCaption: asStats?.title ?? asHit?.title ?? "",
-      publishedAt: asStats?.publishedAt ?? asHit?.publishedAt ?? null,
-      views: asStats?.views ?? null,
-      likes: asStats?.likes ?? null,
-      comments: asStats?.comments ?? null,
-      language: asStats?.defaultLanguage ?? opts.marketLang,
-      madeForKids: asStats?.madeForKids ?? false,
-    };
-  });
+  const latestUploads = byNewest(stats.map((s) => videoToPost(s, opts.marketLang)));
+  const searchMatched = byNewest(
+    (opts.searchStats.length ? opts.searchStats : []).map((s) => videoToPost(s, opts.marketLang)),
+  );
+  const posts: RecentPost[] = latestUploads.length
+    ? latestUploads
+    : (hits.map((h) => ({
+        postId: h.videoId,
+        url: `https://www.youtube.com/watch?v=${h.videoId}`,
+        titleOrCaption: h.title,
+        publishedAt: h.publishedAt || null,
+        views: null,
+        likes: null,
+        comments: null,
+        language: opts.marketLang,
+        madeForKids: false,
+      })) as RecentPost[]);
+  const langs = [
+    ...new Set(
+      [channel.defaultLanguage, opts.marketLang, ...posts.map((p) => p.language)]
+        .filter(Boolean)
+        .map((l) => (l as string).split("-")[0]),
+    ),
+  ];
   const title = posts[0]?.titleOrCaption || channel.title;
   const reasons = ruleReasons({
     niche: scored.components.nicheRelevance,
@@ -630,8 +710,8 @@ function buildCreator(opts: {
     id: channel.id,
     displayName: channel.title,
     country: channel.country ?? null,
-    languages: [opts.marketLang],
-    niches: ["PC building"],
+    languages: langs,
+    niches: opts.nicheLabels,
     audienceAge: madeForKids ? "kids" : "adult",
     contactRoute: "YouTube About page (business email) — tool links there, does not scrape private contact",
     accounts,
@@ -661,6 +741,12 @@ function buildCreator(opts: {
     dataDate: opts.dataDate,
     dataSource: "YouTube Data API v3",
     searchedMarket: opts.marketCode,
+    youtube: buildYoutubeResearch({
+      channel,
+      latest: stats,
+      searchMatched: opts.searchStats,
+      lang: opts.marketLang,
+    }),
   };
 }
 

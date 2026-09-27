@@ -1,5 +1,4 @@
 import { dictionaryTerms, isNicheId, nichesFromBrief, type NicheId } from "./niches";
-import { listLensCaptures } from "./lensStore";
 import { presetRisingTrends } from "./presetTrends";
 import { hitsFromSearchItems, searchApiConfigured, searchIndexedWeb } from "./webSearch";
 import { fetchMostPopular } from "./youtube";
@@ -20,7 +19,6 @@ export type RisingHit = {
   viewsPerSub: number;
   breakout: boolean;
   tags: string[];
-  needsLens: boolean;
 };
 
 export type RisingTrend = {
@@ -44,14 +42,6 @@ const STOP = new Set(
     " ",
   ),
 );
-
-function isBreakout(followers: number, views: number) {
-  if (views <= 0) return false;
-  if (followers <= 0) return views >= 80_000;
-  if (followers < 10_000 && views >= followers * 8) return true;
-  if (followers < 50_000 && views >= followers * 5) return true;
-  return false;
-}
 
 function normHandle(h: string) {
   return h.replace(/^@/, "").toLowerCase();
@@ -163,26 +153,9 @@ export async function runRisingTrends(
         viewsPerSub: 0,
         breakout: false,
         tags: [topic],
-        needsLens: true,
       });
     }
   }
-
-  const lens = (await listLensCaptures()).filter((r) => r.platform === "tiktok");
-  const byHandle = new Map(lens.map((r) => [normHandle(r.handle), r]));
-  for (const row of chart) {
-    const cap = byHandle.get(normHandle(row.channelId));
-    if (!cap) continue;
-    row.followers = cap.followers;
-    row.views = cap.views;
-    row.likes = cap.likes;
-    row.channelTitle = cap.name || row.channelTitle;
-    row.viewsPerSub = cap.followers > 0 ? cap.views / cap.followers : cap.views;
-    row.breakout = isBreakout(cap.followers, cap.views);
-    row.needsLens = false;
-    if (cap.url) row.videoUrl = cap.url;
-  }
-
   notes.push(`TikTok handles from ${provider} for the five suggested topics.`);
   notes.push(...staged.notes);
 

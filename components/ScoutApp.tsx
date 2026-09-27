@@ -14,6 +14,21 @@ import { BrandHomeLink } from "@/components/BrandHomeLink";
 import ThemeToggle from "@/components/ThemeToggle";
 import CreatorFollowUp from "@/components/CreatorFollowUp";
 
+function flagText(flags: unknown[]) {
+  return flags
+    .map((f) => {
+      if (typeof f === "string") return f.trim();
+      if (f && typeof f === "object") {
+        const o = f as Record<string, unknown>;
+        const text = o.text ?? o.reason ?? o.risk ?? o.message;
+        if (typeof text === "string") return text.trim();
+      }
+      return "";
+    })
+    .filter(Boolean)
+    .join("; ");
+}
+
 function csvEscape(v: string) {
   if (/[",\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
   return v;
@@ -65,7 +80,7 @@ function toCsv(rows: ScoredCreator[]) {
         `${(c.engagementRate * 100).toFixed(2)}%`,
         String(c.fit),
         c.reasons.join("; "),
-        c.flags.join("; "),
+        flagText(c.flags),
         c.suggestedDeal,
         c.contactRoute,
         affiliateCode(c.displayName),
@@ -312,19 +327,13 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
         {judgeDemo ? (
           <>
             Judge path: Gaming × Vietnam × YouTube. Demo catalog is off, so <strong>Showing</strong> should match{" "}
-            <strong>Found</strong>. Click Run discovery, open a card, then ask a follow-up. Brand fit is on{" "}
-            <a href="/lens" className="text-accent-text underline">
-              Scout Lens
-            </a>
-            . YouTube is live API — nothing is sent to creators.
+            <strong>Found</strong>. Click Run discovery, open a card, then ask a follow-up. YouTube is live API —
+            TikTok/Instagram only via Connect. Nothing is sent to creators.
           </>
         ) : (
           <>
-            Pick a niche and a short brief, then search. Full brand fit is on{" "}
-            <a href="/lens" className="text-accent-text underline">
-              Scout Lens
-            </a>
-            , for one profile you already have open. No fake accounts, proxies, or login bypass.
+            Pick a niche and a short brief, then search. TikTok and Instagram only add the account you Connect.
+            No fake accounts, proxies, or login bypass.
           </>
         )}
       </div>
@@ -375,8 +384,7 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
               className="w-full field p-2 text-sm"
             />
             <p className="text-xs text-muted">
-              Search uses this plus the niche. Brand name and fit scoring live on Scout Lens when you have an
-              advertiser in mind.
+              Search uses this plus the niche. Fit is scored from the YouTube (or connected) profile we actually pulled.
             </p>
           </div>
           <div className="space-y-2">
@@ -540,8 +548,8 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
             {trendsLoading ? "Loading live trends…" : "TikTok rising — top 5 now"}
           </button>
           <p className="text-xs text-muted">
-            Suggests the five hottest topics from the live video chart, then finds indexed TikTok handles. Open a profile
-            in Scout Lens for followers vs views.
+            Suggests the five hottest topics from the live video chart, then finds indexed TikTok handles. Follower
+            counts are not available unless that creator Connects.
           </p>
           {error && <p className="text-sm text-red-400">{error}</p>}
         </aside>
@@ -552,7 +560,7 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
               <div>
                 <h2 className="font-medium text-lg">TikTok rising</h2>
                 <p className="text-xs text-muted">
-                  Suggested live topics (not a search box). Breakout = Scout Lens shows few followers and high views.
+                  Suggested live topics (not a search box). Indexed handles only — no TikTok follower/view API.
                 </p>
                 {trends.suggestions?.length ? (
                   <p className="text-sm mt-2">
@@ -584,10 +592,9 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
                       <p className="text-muted text-xs">
                         {h.market}
                         {h.country ? ` · ${h.country}` : ""} ·{" "}
-                        {h.followers > 0 ? `${h.followers.toLocaleString()} followers` : "followers via Lens"} ·{" "}
-                        {h.views > 0 ? `${h.views.toLocaleString()} views` : "open in Scout Lens for views"}
+                        {h.followers > 0 ? `${h.followers.toLocaleString()} followers` : "no follower count"} ·{" "}
+                        {h.views > 0 ? `${h.views.toLocaleString()} views` : "no view count"}
                         {h.followers > 0 && h.views > 0 ? ` · ${h.viewsPerSub.toFixed(1)}× views/follower` : ""}
-                        {h.needsLens ? " · needs Lens" : ""}
                       </p>
                       <a href={h.videoUrl} target="_blank" rel="noreferrer" className="text-accent-text text-xs">
                         {h.videoTitle}
@@ -608,7 +615,7 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
                             <a href={h.videoUrl} target="_blank" rel="noreferrer" className="text-accent-text">
                               {h.channelTitle}
                             </a>
-                            {h.breakout ? " · breakout" : h.needsLens ? " · Lens for stats" : ""} ·{" "}
+                            {h.breakout ? " · breakout" : ""} ·{" "}
                             {h.views > 0 ? `${h.views.toLocaleString()} views` : "no view count yet"} ·{" "}
                             {h.followers > 0 ? `${h.followers.toLocaleString()} followers` : "no follower count yet"}
                           </li>
@@ -620,8 +627,8 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
               )}
               {trends.breakouts.length === 0 && trends.chart.length > 0 && (
                 <p className="text-sm text-muted">
-                  Indexed TikTok accounts for this topic. None have Lens stats yet that look like a small-follower /
-                  high-view breakout. Open a profile in Opera with Scout Lens, then run this again.
+                  Indexed TikTok accounts for this topic. Official TikTok APIs do not give other accounts’ followers or
+                  views — only Connect adds the account that signed in.
                 </p>
               )}
             </div>
@@ -815,9 +822,20 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
                         </a>
                       ))}
                     </div>
+                    {c.youtube && (
+                      <p className="mt-2 text-[11px] text-muted">
+                        Channel: {c.youtube.videoCount.toLocaleString()} videos
+                        {c.youtube.lifetimeViews
+                          ? ` · ${c.youtube.lifetimeViews.toLocaleString()} lifetime views`
+                          : ""}
+                        {c.youtube.hiddenSubscribers ? " · subscriber count hidden" : ""}
+                        {c.startedAt ? ` · started ${c.startedAt.slice(0, 10)}` : ""}
+                        {c.youtube.topics.length ? ` · ${c.youtube.topics.slice(0, 3).join(", ")}` : ""}
+                      </p>
+                    )}
                     {c.recentContent.length > 0 && (
                       <ul className="mt-2 space-y-1 text-xs text-muted">
-                        {c.recentContent.slice(0, 3).map((p) => (
+                        {c.recentContent.slice(0, 8).map((p) => (
                           <li key={p.postId}>
                             {p.url ? (
                               <a href={p.url} target="_blank" rel="noreferrer" className="text-accent-text hover:underline">
@@ -831,9 +849,9 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
                         ))}
                       </ul>
                     )}
-                    {c.flags.filter((f) => typeof f === "string" && f.trim()).length > 0 && (
+                    {flagText(c.flags) && (
                       <p className="mt-2 text-xs text-red-300">
-                        {c.flags.filter((f) => typeof f === "string").join(" · ")}
+                        {flagText(c.flags).replace(/; /g, " · ")}
                       </p>
                     )}
                     {openId === c.id && (

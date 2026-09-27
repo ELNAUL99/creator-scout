@@ -7,7 +7,7 @@ import { getMarket } from "./markets";
 function toCreator(row: OptInRecord, req: DiscoverRequest): ScoredCreator {
   const fromIds = [...(req.nicheIds ?? []), req.nicheId ?? ""].filter(isNicheId);
   const niches = fromIds.length ? fromIds : nichesFromBrief(req.brief);
-  const marketCode = req.markets[0] ?? "FI";
+  const marketCode = req.markets[0] ?? "WW";
   const market = getMarket(marketCode);
   const handle = row.handle.replace(/^@/, "");
   const url =

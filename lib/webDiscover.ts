@@ -1,4 +1,4 @@
-import { getMarket } from "./markets";
+import { countrySearchLabels, getMarket } from "./markets";
 import { followersMatchSize } from "./sizeRange";
 import { dictionaryTerms, isNicheId, nichesFromBrief, type NicheId } from "./niches";
 import { scoreVisibleProfile } from "./scoreProfile";
@@ -17,7 +17,7 @@ export async function discoverViaSearchIndex(req: DiscoverRequest): Promise<{ cr
     notes.push(
       "TikTok/Instagram handles: add GOOGLE_CSE_KEY + GOOGLE_CSE_CX (or BRAVE_SEARCH_API_KEY) to run site: searches. No platform scraping.",
     );
-    notes.push("Production swaps this step for a licensed creator-data API; scoring, Scout Lens, and Instagram Business Discovery stay.");
+    notes.push("Production swaps this step for a licensed creator-data API; scoring and Instagram Business Discovery stay.");
     return { creators, notes };
   }
 
@@ -34,10 +34,15 @@ export async function discoverViaSearchIndex(req: DiscoverRequest): Promise<{ cr
   }
   let provider = "search API";
   for (const code of markets) {
-    const market = code === "WW" ? { language: "en", name: "" } : getMarket(code);
-    const term = dictionaryTerms(niches, market.language)[0] ?? req.brief;
+    const market = code === "WW" ? { language: "en", name: "", code: "WW" } : getMarket(code);
+    const term =
+      (req.brand?.pitch ?? "").trim() ||
+      dictionaryTerms(niches, market.language)[0] ||
+      req.brief;
+    const labels = code === "WW" ? [] : countrySearchLabels(market);
+    const place = labels[0] ? ` ${labels[0]}` : "";
     for (const site of sites) {
-      const q = code === "WW" ? `site:${site} "${term}"` : `site:${site} "${term}"`;
+      const q = `site:${site} "${term}"${place}`;
       const found = await searchIndexedWeb(q);
       if (found.provider) provider = found.provider;
       const hits = hitsFromSearchItems(found.items);
@@ -97,7 +102,6 @@ export async function discoverViaSearchIndex(req: DiscoverRequest): Promise<{ cr
   } else {
     notes.push("Set INSTAGRAM_GRAPH_TOKEN and INSTAGRAM_BUSINESS_ID for live Instagram stats on discovered usernames.");
   }
-  notes.push("Scout Lens scores a TikTok/Instagram profile you already have open — one at a time, your session, no crawl.");
   notes.push("Production swaps search-engine discovery for a licensed data API; everything else stays.");
   return { creators, notes };
 }
