@@ -43,8 +43,8 @@ export async function twitchDiscoverCreators(
       const creator = scoreVisibleProfile({
           name: ch.displayName,
           platform: "twitch",
-          bio: [ch.title, ch.gameName, ch.lastVideoTitle].filter(Boolean).join(" · "),
-          captions: [ch.title, ch.lastVideoTitle].filter(Boolean),
+          bio: [ch.title, ch.gameName, ch.lastVideoTitle].filter((x): x is string => Boolean(x)).join(" · "),
+          captions: [ch.title, ch.lastVideoTitle].filter((x): x is string => Boolean(x)),
           followers: 0,
           likes: 0,
           comments: 0,
