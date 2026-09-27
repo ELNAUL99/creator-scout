@@ -4,7 +4,7 @@ import { llmAvailable, llmFit, llmTranslate } from "./llm";
 import { matchesSelectedCountries } from "./localeMatch";
 import { countrySearchLabels, getMarket } from "./markets";
 import { draftMessage, hoursSaved, ruleReasons } from "./messages";
-import { dictionaryTerms, isNicheId, looksLikePcHardware, nichesFromBrief, shouldExcludePcHardware, buildTermsPerMarket, youtubeSearchPlan } from "./niches";
+import { dictionaryTerms, isNicheId, nichesFromBrief, buildTermsPerMarket, youtubeSearchPlan } from "./niches";
 import { sampleDiscover } from "./sample";
 import { scoreCreator, TIER_BENCHMARK } from "./scoring";
 import { connectedOptInCreators } from "./optInCreators";
@@ -447,13 +447,6 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
           droppedCountry += 1;
           continue;
         }
-      }
-      // Judge PC-hardware exclusion on what they MAKE VIDEOS about (titles), not
-      // the channel bio — gamers routinely list their rig ("Näytönohjain: …",
-      // "GPU", "pelikone") in the description, which must not exclude them.
-      const contentText = `${hits.map((h) => h.title).join(" ")} ${stats.map((s) => s.title).join(" ")}`;
-      if (shouldExcludePcHardware(niches) && looksLikePcHardware(contentText)) {
-        continue;
       }
 
       seen.add(channelId);

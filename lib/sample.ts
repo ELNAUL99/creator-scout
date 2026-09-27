@@ -1,7 +1,7 @@
 import { mergeBrand } from "./brand";
 import { getMarket } from "./markets";
 import { draftMessage, hoursSaved, ruleReasons } from "./messages";
-import { dictionaryTerms, isNicheId, looksLikePcHardware, shouldExcludePcHardware, buildTermsPerMarket, type NicheId } from "./niches";
+import { dictionaryTerms, isNicheId, buildTermsPerMarket, type NicheId } from "./niches";
 import { scoreCreator } from "./scoring";
 import type { BrandProfile, CreatorAccount, DiscoverResponse, ScoredCreator } from "./types";
 
@@ -341,8 +341,7 @@ export function sampleDiscover(brief: string, markets: string[], nicheIds?: stri
     const tags = s.niches ?? (["pc-building", "budget-second-hand"] as NicheId[]);
     if (wanted.length === 0) return true;
     if (!tags.some((n) => wanted.includes(n))) return false;
-    const blob = `${s.bio} ${s.titles.join(" ")}`;
-    if (shouldExcludePcHardware(wanted) && looksLikePcHardware(blob)) return false;
+    // Multi-niche creators appear in every niche they match — no cross-niche exclusion.
     return true;
   });
   const creators: ScoredCreator[] = selected.map((s) => {
