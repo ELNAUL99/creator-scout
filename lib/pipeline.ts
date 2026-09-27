@@ -335,7 +335,9 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
     const addVideoHits = (items: YtVideoHit[]) => {
       for (const v of items) {
         const list = grouped.get(v.channelId) ?? [];
-        if (list.length < 5) list.push(v);
+        // 3 videos/channel is enough to estimate avg views/engagement, and keeps
+        // the follow-up videos.list fan-out small when discovering ~500 channels.
+        if (list.length < 3) list.push(v);
         grouped.set(v.channelId, list);
       }
     };
@@ -346,35 +348,54 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
       : youtubeSearchPlan(niches, market.language, countrySearchLabels(market), userQ);
     const regionCode = worldwide ? undefined : market.ytRegion;
 
-    // YouTube search.list costs 100 quota units each (10k/day free). Cap how many
-    // keyword variants we fire so a single run can't drain the daily quota:
-    // a few video searches + a couple of channel searches per market.
-    const videoSteps = plan.slice(0, 4);
-    const channelSteps = plan.slice(0, 2);
-    for (const step of videoSteps) {
-      const batch = await searchRecentVideos({
-        key,
-        q: step.q,
-        regionCode,
-        relevanceLanguage: step.relevanceLanguage,
-        order: "relevance",
-        maxResults: 50,
-      });
-      units += batch.units;
-      addVideoHits(batch.items);
+    // Discovery breadth vs YouTube quota (search.list = 100 units, 10k/day free).
+    // Paginate the keyword plan toward ~500 candidate channels per market, but
+    // cap total search calls so one run can't drain the day (~1.4k units/market).
+    const CHANNEL_TARGET = 500;
+    const MAX_VIDEO_CALLS = 10; // up to ~500 video hits (10 pages × 50)
+    const MAX_CHANNEL_CALLS = 4;
+    let videoCalls = 0;
+    let channelCalls = 0;
+
+    for (const step of plan) {
+      if (videoCalls >= MAX_VIDEO_CALLS || grouped.size >= CHANNEL_TARGET) break;
+      let pageToken: string | undefined;
+      do {
+        const batch = await searchRecentVideos({
+          key,
+          q: step.q,
+          regionCode,
+          relevanceLanguage: step.relevanceLanguage,
+          order: "relevance",
+          maxResults: 50,
+          pageToken,
+        });
+        units += batch.units;
+        videoCalls += 1;
+        addVideoHits(batch.items);
+        pageToken = batch.nextPageToken;
+      } while (pageToken && videoCalls < MAX_VIDEO_CALLS && grouped.size < CHANNEL_TARGET);
     }
-    for (const step of channelSteps) {
-      const chSearch = await searchChannels({
-        key,
-        q: step.q,
-        regionCode,
-        relevanceLanguage: step.relevanceLanguage,
-        maxResults: 50,
-      });
-      units += chSearch.units;
-      for (const channelId of chSearch.channelIds) {
-        if (!grouped.has(channelId)) grouped.set(channelId, []);
-      }
+
+    for (const step of plan) {
+      if (channelCalls >= MAX_CHANNEL_CALLS || grouped.size >= CHANNEL_TARGET) break;
+      let pageToken: string | undefined;
+      do {
+        const chSearch = await searchChannels({
+          key,
+          q: step.q,
+          regionCode,
+          relevanceLanguage: step.relevanceLanguage,
+          maxResults: 50,
+          pageToken,
+        });
+        units += chSearch.units;
+        channelCalls += 1;
+        for (const channelId of chSearch.channelIds) {
+          if (!grouped.has(channelId)) grouped.set(channelId, []);
+        }
+        pageToken = chSearch.nextPageToken;
+      } while (pageToken && channelCalls < MAX_CHANNEL_CALLS && grouped.size < CHANNEL_TARGET);
     }
     const channelIds = [...grouped.keys()];
     const chRes = await fetchChannels(key, channelIds);

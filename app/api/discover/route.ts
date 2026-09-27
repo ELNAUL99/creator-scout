@@ -3,6 +3,10 @@ import { NICHE_TERMS, isNicheId } from "@/lib/niches";
 import { runDiscover } from "@/lib/pipeline";
 import type { DiscoverRequest } from "@/lib/types";
 
+// Deep discovery paginates YouTube + fans out channel/video stats, so allow a
+// longer serverless window than the default.
+export const maxDuration = 60;
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as DiscoverRequest;
