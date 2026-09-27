@@ -266,6 +266,18 @@ export async function runDiscover(req: DiscoverRequest): Promise<DiscoverRespons
         blocked.error = message;
         return blocked;
       }
+      if (/quota|rateLimitExceeded|429/i.test(message)) {
+        // Quota is a soft, temporary condition — degrade instead of 500ing so
+        // Twitch / opt-in / preset sources still return.
+        const quota = await attachLiveSources(
+          req,
+          emptyLive(req, [
+            "YouTube daily search quota is used up (10,000 units/day; each search costs 100). Live YouTube discovery pauses until the quota resets (~midnight US Pacific).",
+            "Twitch, connected accounts, Scout Lens, and demo catalog still run. Request a higher YouTube quota in Google Cloud, or use a second API key, to raise the daily limit.",
+          ]),
+        );
+        return quota;
+      }
       throw e;
     }
   }
@@ -334,7 +346,12 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
       : youtubeSearchPlan(niches, market.language, countrySearchLabels(market), userQ);
     const regionCode = worldwide ? undefined : market.ytRegion;
 
-    for (const step of plan) {
+    // YouTube search.list costs 100 quota units each (10k/day free). Cap how many
+    // keyword variants we fire so a single run can't drain the daily quota:
+    // a few video searches + a couple of channel searches per market.
+    const videoSteps = plan.slice(0, 4);
+    const channelSteps = plan.slice(0, 2);
+    for (const step of videoSteps) {
       const batch = await searchRecentVideos({
         key,
         q: step.q,
@@ -346,7 +363,7 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
       units += batch.units;
       addVideoHits(batch.items);
     }
-    for (const step of plan) {
+    for (const step of channelSteps) {
       const chSearch = await searchChannels({
         key,
         q: step.q,
