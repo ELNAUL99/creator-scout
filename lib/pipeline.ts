@@ -448,7 +448,11 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
           continue;
         }
       }
-      if (shouldExcludePcHardware(niches) && looksLikePcHardware(blob)) {
+      // Judge PC-hardware exclusion on what they MAKE VIDEOS about (titles), not
+      // the channel bio — gamers routinely list their rig ("Näytönohjain: …",
+      // "GPU", "pelikone") in the description, which must not exclude them.
+      const contentText = `${hits.map((h) => h.title).join(" ")} ${stats.map((s) => s.title).join(" ")}`;
+      if (shouldExcludePcHardware(niches) && looksLikePcHardware(contentText)) {
         continue;
       }
 
