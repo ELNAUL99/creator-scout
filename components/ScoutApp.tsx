@@ -61,6 +61,7 @@ function toCsv(rows: ScoredCreator[]) {
     "Followers",
     "Tier",
     "Avg views",
+    "Peak live",
     "Engagement",
     "Fit",
     "Why",
@@ -91,6 +92,7 @@ function toCsv(rows: ScoredCreator[]) {
         String(c.followers),
         c.tier,
         String(c.avgViews),
+        c.peakLiveViewers != null ? String(c.peakLiveViewers) : "",
         `${(c.engagementRate * 100).toFixed(2)}%`,
         String(c.fit),
         c.reasons.join("; "),
@@ -168,9 +170,8 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
     let hiddenGems = 0;
     const visible = result.creators.filter((c) => {
       if (ruledOut.includes(c.id)) return false;
-      // Twitch has no follower/view/country data via app token — server already
-      // language-filtered it, so don't drop it on size or country here.
-      const noStats = c.accounts.some((a) => a.platform === "twitch");
+      // Twitch: skip follower bands (unknown). Avg views can still filter. Country already language-filtered.
+      const twitch = c.accounts.some((a) => a.platform === "twitch");
       if (gemsOnly && !c.hiddenGem) {
         hiddenGems += 1;
         return false;
@@ -179,17 +180,17 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
         hiddenFlagged += 1;
         return false;
       }
-      if (!noStats && !followersMatchSize(c.followers, followerMin, followerMax)) {
+      if (!twitch && !followersMatchSize(c.followers, followerMin, followerMax)) {
         hiddenSize += 1;
         return false;
       }
-      if (!noStats && viewsRanged) {
+      if (viewsRanged) {
         if (c.avgViews <= 0 || c.avgViews < viewMin || c.avgViews > vMax) {
           hiddenSize += 1;
           return false;
         }
       }
-      if (!noStats && markets.length && !includeOtherCountries) {
+      if (!twitch && markets.length && !includeOtherCountries) {
         const searched = (c.searchedMarket ?? "").toUpperCase();
         // Server already kept this row for the selected market (language or ISO).
         // Do not re-check YouTube's often-wrong channel.country — that hid 3 of 4.
@@ -224,6 +225,7 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
   async function run() {
     setLoading(true);
     setError(null);
+    setTrends(null);
     try {
       const res = await fetch("/api/discover", {
         method: "POST",
@@ -264,6 +266,7 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
   async function runTrends() {
     setTrendsLoading(true);
     setError(null);
+    setResult(null);
     try {
       const res = await fetch("/api/trends", {
         method: "POST",
@@ -614,59 +617,6 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
                   {n}
                 </p>
               ))}
-              {trends.breakouts.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Breakouts (few followers, high views)</p>
-                  {trends.breakouts.map((h) => (
-                    <article key={h.videoId} className="card-sm p-3 text-sm space-y-1">
-                      <p>
-                        <a href={h.channelUrl} target="_blank" rel="noreferrer" className="font-medium hover:text-accent-text">
-                          {h.channelTitle}
-                        </a>{" "}
-                        <span className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">Breakout</span>
-                      </p>
-                      <p className="text-muted text-xs">
-                        {h.market}
-                        {h.country ? ` · ${h.country}` : ""} ·{" "}
-                        {h.followers > 0 ? `${h.followers.toLocaleString()} followers` : "no follower count"} ·{" "}
-                        {h.views > 0 ? `${h.views.toLocaleString()} views` : "no view count"}
-                        {h.followers > 0 && h.views > 0 ? ` · ${h.viewsPerSub.toFixed(1)}× views/follower` : ""}
-                      </p>
-                      <a href={h.videoUrl} target="_blank" rel="noreferrer" className="text-accent-text text-xs">
-                        {h.videoTitle}
-                      </a>
-                    </article>
-                  ))}
-                </div>
-              )}
-              {trends.trends.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">On this TikTok trend</p>
-                  {trends.trends.map((t) => (
-                    <div key={t.label} className="card-sm p-3 text-sm">
-                      <p className="font-medium">{t.label}</p>
-                      <ul className="mt-1 space-y-1 text-xs text-muted">
-                        {t.hits.slice(0, 5).map((h) => (
-                          <li key={h.videoId}>
-                            <a href={h.videoUrl} target="_blank" rel="noreferrer" className="text-accent-text">
-                              {h.channelTitle}
-                            </a>
-                            {h.breakout ? " · breakout" : ""} ·{" "}
-                            {h.views > 0 ? `${h.views.toLocaleString()} views` : "no view count yet"} ·{" "}
-                            {h.followers > 0 ? `${h.followers.toLocaleString()} followers` : "no follower count yet"}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {trends.breakouts.length === 0 && trends.chart.length > 0 && (
-                <p className="text-sm text-muted">
-                  Indexed TikTok accounts for this topic. Official TikTok APIs do not give other accounts’ followers or
-                  views — only Connect adds the account that signed in.
-                </p>
-              )}
             </div>
           )}
 
@@ -791,7 +741,16 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
                         </h2>
                         <p className="text-xs text-muted">
                           {c.searchedMarket} · {c.tier} ·{" "}
-                          {c.followers > 0 ? `${c.followers.toLocaleString()} followers` : "no public follower count"}
+                          {c.followers > 0
+                            ? `${c.followers.toLocaleString()} followers`
+                            : c.accounts.some((a) => a.platform === "twitch")
+                              ? [
+                                  c.avgViews > 0 ? `${c.avgViews.toLocaleString()} avg views` : "avg views n/a",
+                                  (c.peakLiveViewers ?? 0) > 0
+                                    ? `${c.peakLiveViewers!.toLocaleString()} peak live`
+                                    : "peak live n/a",
+                                ].join(" · ")
+                              : "no public follower count"}
                           {c.accounts.some((a) => (a.followers ?? 0) > 0 && a.followers !== c.followers)
                             ? ` (${c.accounts
                                 .filter((a) => (a.followers ?? 0) > 0)

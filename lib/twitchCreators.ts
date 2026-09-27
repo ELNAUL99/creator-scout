@@ -40,16 +40,15 @@ export async function twitchDiscoverCreators(
       // No country on Twitch — use broadcaster language as the proxy when restricting.
       if (restrictCountry && !worldwide && ch.language && ch.language !== market.language) continue;
       seen.add(key);
-      creators.push(
-        scoreVisibleProfile({
+      const creator = scoreVisibleProfile({
           name: ch.displayName,
           platform: "twitch",
-          bio: [ch.title, ch.gameName].filter(Boolean).join(" · "),
-          captions: [ch.title].filter(Boolean),
-          followers: 0, // not available via Twitch app token
+          bio: [ch.title, ch.gameName, ch.lastVideoTitle].filter(Boolean).join(" · "),
+          captions: [ch.title, ch.lastVideoTitle].filter(Boolean),
+          followers: 0,
           likes: 0,
           comments: 0,
-          views: 1,
+          views: Math.max(1, ch.avgViews),
           country: null,
           market: worldwide ? "WW" : code,
           language: ch.language || market.language,
@@ -58,14 +57,29 @@ export async function twitchDiscoverCreators(
           url: `https://www.twitch.tv/${ch.login}`,
           handle: ch.login,
           brand: req.brand,
-        }),
-      );
+        });
+      creator.avgViews = ch.avgViews;
+      creator.peakLiveViewers = ch.peakLiveViewers;
+      if (ch.videoUrl && creator.recentContent[0]) {
+        creator.recentContent[0] = {
+          ...creator.recentContent[0],
+          url: ch.videoUrl,
+          views: ch.avgViews || null,
+        };
+      }
+      creator.reasons = [
+        ch.isLive
+          ? `Twitch: ${ch.avgViews.toLocaleString()} avg VOD/clip views · ${ch.peakLiveViewers.toLocaleString()} peak live (current stream CCV vs recent VOD/clip views). Followers are not on the app token.`
+          : `Twitch: ${ch.avgViews.toLocaleString()} avg VOD/clip views · ${ch.peakLiveViewers.toLocaleString()} peak recorded views (Helix has no historic live CCV while offline). Followers are not on the app token.`,
+        ...creator.reasons,
+      ];
+      creators.push(creator);
     }
   }
 
   if (creators.length) {
     notes.push(
-      `Twitch Helix live search: ${creators.length} channel(s). Follower counts are not on the app token, so size filters do not drop Twitch rows.`,
+      `Twitch Helix: ${creators.length} channel(s) with a VOD, clip, or live stream. Cards show avg views and peak live/recorded viewers (not followers).`,
     );
   } else {
     notes.push(

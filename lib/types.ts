@@ -64,6 +64,8 @@ export type ScoredCreator = {
   followers: number;
   tier: SizeTier;
   avgViews: number;
+  /** Current live CCV if streaming, else highest recent VOD/clip views (Helix has no historic live peak). */
+  peakLiveViewers?: number | null;
   /** Lifetime total uploads (YouTube statistics.videoCount); null when unknown. */
   totalVideos?: number | null;
   /** Channel creation date (YouTube snippet.publishedAt); null when unknown. */
