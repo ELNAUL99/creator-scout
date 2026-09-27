@@ -450,36 +450,40 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
     }
 
     marketCreators.sort((a, b) => b.fit - a.fit);
-    const top = marketCreators.slice(0, 30);
+    // LLM fit is the slow part (one call per creator). Score only the top few,
+    // and run them in parallel so a deep run doesn't take 30–60s.
+    const top = marketCreators.slice(0, 10);
     if (llmAvailable()) {
-      for (const c of top) {
-        const fit = await llmFit({
-          brandName: brand.name || "an advertiser",
-          pitch: brand.pitch || req.brief,
-          goodWords: brand.goodFitWords.length ? brand.goodFitWords : terms.slice(0, 12),
-          competitors: brand.competitors,
-          riskWords: brand.riskWords,
-          name: c.displayName,
-          platform: "youtube",
-          country: c.country,
-          followers: c.followers,
-          er: c.engagementRate,
-          benchmark: TIER_BENCHMARK[c.tier],
-          titles: c.recentContent.map((p) => p.titleOrCaption),
-        });
-        if (fit) {
-          c.llmFit = fit.fit;
-          c.llmReasons = fit.reasons;
-          c.scoringMode = "rules+llm";
-          c.components.nicheRelevance = Math.round(c.components.nicheRelevance * 0.5 + fit.fit * 0.5);
-          c.fit = Math.round(c.fit * 0.7 + fit.fit * 0.3);
-          if (fit.risks.length) {
-            const riskText = fit.risks.filter((r): r is string => typeof r === "string" && r.trim().length > 0);
-            c.flags = [...new Set([...c.flags, ...riskText])];
+      await Promise.all(
+        top.map(async (c) => {
+          const fit = await llmFit({
+            brandName: brand.name || "an advertiser",
+            pitch: brand.pitch || req.brief,
+            goodWords: brand.goodFitWords.length ? brand.goodFitWords : terms.slice(0, 12),
+            competitors: brand.competitors,
+            riskWords: brand.riskWords,
+            name: c.displayName,
+            platform: "youtube",
+            country: c.country,
+            followers: c.followers,
+            er: c.engagementRate,
+            benchmark: TIER_BENCHMARK[c.tier],
+            titles: c.recentContent.map((p) => p.titleOrCaption),
+          });
+          if (fit) {
+            c.llmFit = fit.fit;
+            c.llmReasons = fit.reasons;
+            c.scoringMode = "rules+llm";
+            c.components.nicheRelevance = Math.round(c.components.nicheRelevance * 0.5 + fit.fit * 0.5);
+            c.fit = Math.round(c.fit * 0.7 + fit.fit * 0.3);
+            if (fit.risks.length) {
+              const riskText = fit.risks.filter((r): r is string => typeof r === "string" && r.trim().length > 0);
+              c.flags = [...new Set([...c.flags, ...riskText])];
+            }
+            c.hiddenGem = c.fit >= 70 && c.followers < 50_000 && c.flags.length === 0;
           }
-          c.hiddenGem = c.fit >= 70 && c.followers < 50_000 && c.flags.length === 0;
-        }
-      }
+        }),
+      );
     }
     allCreators.push(...marketCreators);
     notes.push(
