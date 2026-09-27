@@ -39,7 +39,7 @@ Without keys, **Auto** mode returns **labelled sample** YouTube profiles (fictio
 
 ## Demo flow
 
-1. Pick a niche and a country, then run discovery. Keep the demo catalog unchecked for a live YouTube-only list.
+1. Pick a niche and a country, then run discovery. Keep the demo catalog unchecked for a live YouTube-only list. The catalog is 300 labelled fictional creators per country (5 per niche per TT/IG/FB/Twitch), not a crawl.
 2. Open a card → Why → follow-up. Follow-ups use the stored YouTube channel pull.
 3. TikTok/Instagram: Connect the account you want scored. Nothing is sent to creators.
 

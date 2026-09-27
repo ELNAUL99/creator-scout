@@ -217,7 +217,7 @@ async function attachLiveSources(req: DiscoverRequest, result: DiscoverResponse)
     if (preset.length) {
       creators = mergeCreators(creators, preset);
       notes.push(
-        `Included ${preset.length} fictional preset creator(s) (100 per TikTok, Instagram, Facebook, Twitch, mixed countries/sizes/niches). Labelled demo — not a live crawl.`,
+        `Included ${preset.length} fictional preset creator(s) (300 per country, 5 per niche per platform). Labelled demo — not a live crawl.`,
       );
     }
   }

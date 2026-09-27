@@ -21,8 +21,13 @@ export type RisingHit = {
   tags: string[];
 };
 
+export type TrendKind = "hashtag" | "sound" | "topic";
+
 export type RisingTrend = {
   label: string;
+  kind: TrendKind;
+  /** Summed views for this tag/sound. 0 = unknown (TikTok does not give other accounts’ views). */
+  views: number;
   hits: RisingHit[];
 };
 
@@ -55,20 +60,36 @@ function scoreTag(tag: string) {
   return true;
 }
 
-async function suggestFiveTopics(nicheIds: string[]): Promise<{ topics: string[]; units: number; note: string }> {
+type TopicHint = { label: string; views: number; kind: TrendKind };
+
+function mergeTrend(into: RisingTrend[], next: RisingTrend) {
+  const key = next.label.toLowerCase();
+  const existing = into.find((t) => t.label.toLowerCase() === key);
+  if (!existing) {
+    into.push({ ...next, label: next.label.toLowerCase() });
+    return;
+  }
+  existing.views = Math.max(existing.views, next.views);
+  existing.hits = [...existing.hits, ...next.hits];
+  if (next.kind === "sound") existing.kind = "sound";
+}
+
+async function suggestFiveTopics(nicheIds: string[]): Promise<{ topics: TopicHint[]; units: number; note: string }> {
   const key = (process.env.YOUTUBE_API_KEY ?? "").trim();
   if (!key) {
     const fromIds = nicheIds.filter(isNicheId) as NicheId[];
     const niches = fromIds.length ? fromIds : nichesFromBrief("gaming");
     return {
-      topics: dictionaryTerms(niches, "en").slice(0, 5),
+      topics: dictionaryTerms(niches, "en")
+        .slice(0, 5)
+        .map((label) => ({ label, views: 0, kind: "topic" as const })),
       units: 0,
       note: "No YouTube key — suggested niche words instead of a live chart.",
     };
   }
   let units = 0;
-  const counts = new Map<string, number>();
-  for (const cat of [undefined, "10"]) {
+  const byTag = new Map<string, { views: number; kind: TrendKind }>();
+  for (const cat of [undefined, "10"] as const) {
     const pop = await fetchMostPopular({
       key,
       regionCode: "US",
@@ -76,24 +97,28 @@ async function suggestFiveTopics(nicheIds: string[]): Promise<{ topics: string[]
       videoCategoryId: cat,
     });
     units += pop.units;
+    const kind: TrendKind = cat === "10" ? "sound" : "hashtag";
     for (const v of pop.items) {
       const tags = v.tags.length ? v.tags : v.title.split(/[\s#]+/);
       for (const raw of tags) {
         const tag = raw.replace(/^#/, "").trim();
         if (!scoreTag(tag)) continue;
         const k = tag.toLowerCase();
-        counts.set(k, (counts.get(k) ?? 0) + 1);
+        const prev = byTag.get(k) ?? { views: 0, kind };
+        prev.views += v.views;
+        if (kind === "sound") prev.kind = "sound";
+        byTag.set(k, prev);
       }
     }
   }
-  const topics = [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([t]) => t)
-    .slice(0, 5);
+  const topics = [...byTag.entries()]
+    .sort((a, b) => b[1].views - a[1].views)
+    .slice(0, 8)
+    .map(([label, v]) => ({ label, views: v.views, kind: v.kind }));
   return {
-    topics: topics.length ? topics : ["fyp", "viral", "trending"],
+    topics: topics.length ? topics : [{ label: "viral", views: 0, kind: "hashtag" }],
     units,
-    note: "Top 5 topics from YouTube’s live mostPopular chart (US, including Music). Used as TikTok site: queries — not TikTok Creative Center.",
+    note: "Hot bubbles are hashtags and sounds from YouTube’s live mostPopular chart (US, including Music). View counts under each bubble are those chart videos — not TikTok Creative Center.",
   };
 }
 
@@ -103,23 +128,34 @@ export async function runRisingTrends(
   _query: string,
 ): Promise<RisingResponse> {
   const notes: string[] = [
-    "TikTok-only rising. We suggest the five hottest topics from the live video chart, then find public TikTok handles already indexed for those tags. Login Kit cannot read other accounts’ views.",
+    "TikTok-only rising. Hot search is small bubbles (hashtag or sound). Views under a bubble are attributed chart/demo views — Login Kit cannot read other accounts’ TikTok views.",
   ];
 
   const suggested = await suggestFiveTopics(nicheIds);
   notes.push(suggested.note);
 
   const staged = presetRisingTrends();
+  const topicLabels = suggested.topics.map((t) => t.label);
+
+  function seedTrends(): RisingTrend[] {
+    const list: RisingTrend[] = [];
+    for (const t of suggested.topics) {
+      mergeTrend(list, { label: t.label, kind: t.kind, views: t.views, hits: [] });
+    }
+    for (const t of staged.trends) mergeTrend(list, t);
+    return list.sort((a, b) => b.views - a.views);
+  }
 
   if (!searchApiConfigured()) {
+    const trends = seedTrends();
     return {
       createdAt: new Date().toISOString(),
       apiUnitsUsed: suggested.units,
       notes: [...notes, ...staged.notes],
-      suggestions: staged.suggestions,
+      suggestions: trends.map((t) => t.label).slice(0, 12),
       breakouts: staged.breakouts,
       chart: staged.chart,
-      trends: staged.trends,
+      trends,
     };
   }
 
@@ -127,7 +163,7 @@ export async function runRisingTrends(
   const seen = new Set<string>();
   let provider = "search API";
 
-  for (const topic of suggested.topics) {
+  for (const topic of topicLabels) {
     const q = `site:tiktok.com "#${topic}" OR "${topic}"`;
     const found = await searchIndexedWeb(q);
     if (found.provider) provider = found.provider;
@@ -166,21 +202,23 @@ export async function runRisingTrends(
   }
 
   const breakouts = chart.filter((h) => h.breakout).sort((a, b) => b.viewsPerSub - a.viewsPerSub);
-  const grouped = new Map<string, RisingHit[]>();
-  for (const topic of [...suggested.topics, ...staged.suggestions]) grouped.set(topic, []);
+  const trends = seedTrends();
   for (const h of chart) {
-    const label = h.tags[0] || "tiktok";
-    const list = grouped.get(label) ?? [];
-    list.push(h);
-    grouped.set(label, list);
+    const label = (h.tags[0] || "tiktok").toLowerCase();
+    mergeTrend(trends, {
+      label,
+      kind: "hashtag",
+      views: h.views,
+      hits: [h],
+    });
   }
-  const trends = [...grouped.entries()].map(([label, hits]) => ({ label, hits }));
+  trends.sort((a, b) => b.views - a.views);
 
   return {
     createdAt: new Date().toISOString(),
     apiUnitsUsed: suggested.units,
     notes,
-    suggestions: [...new Set([...staged.suggestions, ...suggested.topics])].slice(0, 8),
+    suggestions: trends.map((t) => t.label).slice(0, 12),
     breakouts,
     chart,
     trends,

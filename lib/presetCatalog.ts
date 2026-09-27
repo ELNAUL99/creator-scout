@@ -6,7 +6,10 @@ import { scoreCreator } from "./scoring";
 import type { BrandProfile, DiscoverRequest, Platform, ScoredCreator } from "./types";
 
 export const PRESET_PLATFORMS: Platform[] = ["tiktok", "instagram", "facebook", "twitch"];
-export const PRESET_PER_PLATFORM = 100;
+/** Creators per niche per platform per country — enough to show 4–5 on one topic filter. */
+export const PRESET_PER_TOPIC_PLATFORM = 5;
+/** 15 niches × 4 platforms × 5 = 300 fictional rows per country. */
+export const PRESET_PER_COUNTRY = NICHE_IDS.length * PRESET_PLATFORMS.length * PRESET_PER_TOPIC_PLATFORM;
 
 const GIVEN = [
   "Aino", "Maya", "Luca", "Priya", "Yuki", "Noor", "Sofia", "Kenji", "Amara", "Hugo",
@@ -73,7 +76,7 @@ export type PresetSeed = {
   name: string;
   country: string;
   language: string;
-  niche: NicheId;
+  niches: NicheId[];
   followers: number;
   titles: string[];
   views: number[];
@@ -83,43 +86,57 @@ export type PresetSeed = {
   makeupTrend: boolean;
 };
 
-/** 100 fictional creators per TikTok / Instagram / Facebook / Twitch. Two per listed country. */
+/** 300 fictional creators per country: 5 per niche per TikTok/IG/Facebook/Twitch. */
 export function buildPresetSeeds(): PresetSeed[] {
   const out: PresetSeed[] = [];
-  for (let p = 0; p < PRESET_PLATFORMS.length; p++) {
-    const platform = PRESET_PLATFORMS[p];
-    for (let i = 0; i < PRESET_PER_PLATFORM; i++) {
-      const rnd = mulberry(p * 10_000 + i * 97 + 13);
-      const market = MARKETS[i % MARKETS.length];
-      const niche = NICHE_IDS[(i * 7 + p * 3) % NICHE_IDS.length];
-      const makeupTrend = niche === "beauty" && rnd() > 0.35;
-      const followers = sizeFor(i, rnd);
-      const viewMul = makeupTrend ? 6 + rnd() * 14 : 0.08 + rnd() * 0.7;
-      const v0 = Math.max(400, Math.round(followers * viewMul * (0.7 + rnd() * 0.6)));
-      const v1 = Math.max(200, Math.round(v0 * (0.45 + rnd() * 0.4)));
-      const v2 = Math.max(120, Math.round(v0 * (0.25 + rnd() * 0.3)));
-      const given = GIVEN[(i + p * 11) % GIVEN.length];
-      const label = NICHE_TERMS[niche].label.replace(/\s+/g, "");
-      const handle = `csdemo_${platform.slice(0, 2)}_${market.code.toLowerCase()}_${i}`;
-      const local = makeupTrend ? "glass skin lip oil clean girl" : "";
-      const titles = TITLES[niche].map((t, ti) =>
-        ti === 0 && makeupTrend ? `${t} — ${market.name}` : `${t}${ti === 2 ? ` (${market.code})` : ""}`,
-      );
-      out.push({
-        platform,
-        handle,
-        name: `${given} ${label}`,
-        country: market.code,
-        language: market.language,
-        niche,
-        followers,
-        titles: titles.map((t) => `${t} ${local}`.trim()),
-        views: [v0, v1, v2],
-        likes: [Math.round(v0 * 0.06), Math.round(v1 * 0.07), Math.round(v2 * 0.05)],
-        comments: [Math.round(v0 * 0.008), Math.round(v1 * 0.009), Math.round(v2 * 0.006)],
-        daysAgo: [1 + Math.floor(rnd() * 12), 14 + Math.floor(rnd() * 20), 40 + Math.floor(rnd() * 40)],
-        makeupTrend,
-      });
+  for (let m = 0; m < MARKETS.length; m++) {
+    const market = MARKETS[m];
+    let i = 0;
+    for (let n = 0; n < NICHE_IDS.length; n++) {
+      const primary = NICHE_IDS[n];
+      for (let p = 0; p < PRESET_PLATFORMS.length; p++) {
+        const platform = PRESET_PLATFORMS[p];
+        for (let k = 0; k < PRESET_PER_TOPIC_PLATFORM; k++) {
+          const rnd = mulberry(m * 100_000 + n * 1_000 + p * 50 + k * 13 + 7);
+          const niches: NicheId[] = [primary];
+          if (k === 0) {
+            const extra = NICHE_IDS[(n + 4) % NICHE_IDS.length];
+            if (extra !== primary) niches.push(extra);
+          }
+          const makeupTrend = primary === "beauty" && k < 4;
+          const viralClip = k === PRESET_PER_TOPIC_PLATFORM - 1;
+          const followers = sizeFor(n * PRESET_PER_TOPIC_PLATFORM + k, rnd);
+          const viewMul = makeupTrend || viralClip ? 6 + rnd() * 14 : 0.08 + rnd() * 0.7;
+          const v0 = Math.max(400, Math.round(followers * viewMul * (0.7 + rnd() * 0.6)));
+          const v1 = Math.max(200, Math.round(v0 * (0.45 + rnd() * 0.4)));
+          const v2 = Math.max(120, Math.round(v0 * (0.25 + rnd() * 0.3)));
+          const given = GIVEN[(i + m * 11) % GIVEN.length];
+          const label = niches.map((id) => NICHE_TERMS[id].label.replace(/\s+/g, "")).join("/");
+          const handle = `csdemo_${platform.slice(0, 2)}_${market.code.toLowerCase()}_${i}`;
+          const local = makeupTrend ? "glass skin lip oil clean girl" : viralClip ? "clip took off" : "";
+          const titles = TITLES[primary].map((t, ti) => {
+            if (ti === 0 && makeupTrend) return `${t} — ${market.name}`;
+            if (ti === 1 && niches[1]) return TITLES[niches[1]][0];
+            return `${t}${ti === 2 ? ` (${market.code})` : ""}`;
+          });
+          out.push({
+            platform,
+            handle,
+            name: `${given} ${label}`,
+            country: market.code,
+            language: market.language,
+            niches,
+            followers,
+            titles: titles.map((t) => `${t} ${local}`.trim()),
+            views: [v0, v1, v2],
+            likes: [Math.round(v0 * 0.06), Math.round(v1 * 0.07), Math.round(v2 * 0.05)],
+            comments: [Math.round(v0 * 0.008), Math.round(v1 * 0.009), Math.round(v2 * 0.006)],
+            daysAgo: [1 + Math.floor(rnd() * 12), 14 + Math.floor(rnd() * 20), 40 + Math.floor(rnd() * 40)],
+            makeupTrend,
+          });
+          i += 1;
+        }
+      }
     }
   }
   return out;
@@ -145,10 +162,10 @@ export function presetCatalogCreators(req: DiscoverRequest): ScoredCreator[] {
   return presetSeeds()
     .filter((s) => want.has(s.platform))
     .filter((s) => !markets.length || markets.includes(s.country))
-    .filter((s) => !niches.length || niches.includes(s.niche))
+    .filter((s) => !niches.length || s.niches.some((n) => niches.includes(n)))
     .map((s) => {
-      const text = `${s.titles.join(" ")} ${s.niche} ${s.makeupTrend ? "makeup glass-skin lip-oil" : ""}`;
-      const terms = dictionaryTerms(niches.length ? niches : [s.niche], s.language);
+      const text = `${s.titles.join(" ")} ${s.niches.join(" ")} ${s.makeupTrend ? "makeup glass-skin lip-oil" : ""}`;
+      const terms = dictionaryTerms(niches.length ? niches : s.niches, s.language);
       const views = Math.round(s.views.reduce((a, b) => a + b, 0) / s.views.length);
       const likes = Math.round(s.likes.reduce((a, b) => a + b, 0) / s.likes.length);
       const comments = Math.round(s.comments.reduce((a, b) => a + b, 0) / s.comments.length);
@@ -190,7 +207,7 @@ export function presetCatalogCreators(req: DiscoverRequest): ScoredCreator[] {
         displayName: s.name,
         country: s.country,
         languages: [s.language],
-        niches: [s.niche],
+        niches: s.niches,
         audienceAge: "adult" as const,
         contactRoute: contactRoute(s.platform),
         accounts: [

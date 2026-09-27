@@ -113,7 +113,7 @@ export type DiscoverRequest = {
   workspaceId?: string | null;
   /** Off by default. Sheet is collab history, not live discovery. */
   includePrenewCollabs?: boolean;
-  /** Demo catalog of fictional TT/IG/FB/Twitch creators. Default off. */
+  /** Demo catalog of fictional TT/IG/FB/Twitch creators (300 per country, 5 per niche per platform). Default off. */
   includePresetCatalog?: boolean;
   /** When true, drop YouTube channels that don’t look like the selected country. */
   localOnly?: boolean;

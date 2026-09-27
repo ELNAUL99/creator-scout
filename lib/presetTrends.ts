@@ -1,7 +1,30 @@
-import { presetSeeds } from "./presetCatalog";
+import { presetSeeds, type PresetSeed } from "./presetCatalog";
 import type { RisingHit, RisingTrend } from "./trends";
 
-const MAKEUP_TAGS = ["glassskin", "lipoil", "cleangirl", "dewymakeup", "softglam"];
+const HASHTAGS = ["glassskin", "lipoil", "cleangirl", "dewymakeup", "softglam"];
+const SOUNDS = ["oh no sped up", "original sound", "aesthetic beat"];
+const CREATORS_PER_TOPIC = 5;
+
+function toHit(s: PresetSeed, tag: string, kind: "trend" | "sound"): RisingHit {
+  const views = s.views[0];
+  return {
+    videoId: `${s.handle}-${kind}`,
+    videoTitle: s.titles[0],
+    videoUrl: `https://www.tiktok.com/@${s.handle}`,
+    publishedAt: new Date(Date.now() - s.daysAgo[0] * 86_400_000).toISOString(),
+    views,
+    likes: s.likes[0],
+    channelId: s.handle,
+    channelTitle: s.name,
+    channelUrl: `https://www.tiktok.com/@${s.handle}`,
+    followers: s.followers,
+    country: s.country,
+    market: s.country,
+    viewsPerSub: s.followers > 0 ? views / s.followers : views,
+    breakout: views >= s.followers * 4,
+    tags: [tag],
+  };
+}
 
 export function presetRisingTrends(): {
   suggestions: string[];
@@ -10,40 +33,43 @@ export function presetRisingTrends(): {
   trends: RisingTrend[];
   notes: string[];
 } {
-  const makeup = presetSeeds().filter((s) => s.platform === "tiktok" && s.makeupTrend);
-  const chart: RisingHit[] = makeup.slice(0, 24).map((s) => {
-    const views = s.views[0];
-    const followers = s.followers;
+  const pool = presetSeeds().filter((s) => s.platform === "tiktok" && (s.makeupTrend || s.niches.includes("beauty")));
+  let cursor = 0;
+  function take(n: number) {
+    const slice = pool.slice(cursor, cursor + n);
+    cursor += n;
+    return slice;
+  }
+
+  const hashTrends: RisingTrend[] = HASHTAGS.map((label) => {
+    const hits = take(CREATORS_PER_TOPIC).map((s) => toHit(s, label, "trend"));
     return {
-      videoId: `${s.handle}-trend`,
-      videoTitle: s.titles[0],
-      videoUrl: `https://www.tiktok.com/@${s.handle}`,
-      publishedAt: new Date(Date.now() - s.daysAgo[0] * 86_400_000).toISOString(),
-      views,
-      likes: s.likes[0],
-      channelId: s.handle,
-      channelTitle: s.name,
-      channelUrl: `https://www.tiktok.com/@${s.handle}`,
-      followers,
-      country: s.country,
-      market: s.country,
-      viewsPerSub: followers > 0 ? views / followers : views,
-      breakout: views >= followers * 4,
-      tags: ["glassskin"],
+      label,
+      kind: "hashtag" as const,
+      views: hits.reduce((sum, h) => sum + h.views, 0),
+      hits,
     };
   });
-  const byTag = MAKEUP_TAGS.map((label, idx) => ({
-    label,
-    hits: chart.filter((_, i) => i % MAKEUP_TAGS.length === idx),
-  }));
+
+  const soundTrends: RisingTrend[] = SOUNDS.map((label) => {
+    const hits = take(CREATORS_PER_TOPIC).map((s) => toHit(s, label, "sound"));
+    return {
+      label,
+      kind: "sound" as const,
+      views: hits.reduce((sum, h) => sum + h.views, 0),
+      hits,
+    };
+  });
+
+  const chart = [...hashTrends, ...soundTrends].flatMap((t) => t.hits);
   return {
-    suggestions: MAKEUP_TAGS,
+    suggestions: [...HASHTAGS, ...SOUNDS],
     breakouts: chart.filter((h) => h.breakout).sort((a, b) => b.viewsPerSub - a.viewsPerSub),
     chart,
-    trends: byTag,
+    trends: [...hashTrends, ...soundTrends],
     notes: [
-      "Makeup trend pack is staged demo data (glass skin / lip oil / clean girl) — not TikTok Creative Center.",
-      "Handles are fictional csdemo_* accounts so you can still shortlist when live TikTok search is empty.",
+      "Makeup hashtag and sound bubbles use staged demo view totals — not TikTok Creative Center.",
+      "Each bubble lists five labelled demo TikToks. Handles are fictional csdemo_* accounts.",
     ],
   };
 }

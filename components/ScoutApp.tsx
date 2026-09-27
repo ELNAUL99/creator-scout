@@ -14,6 +14,20 @@ import { BrandHomeLink } from "@/components/BrandHomeLink";
 import ThemeToggle from "@/components/ThemeToggle";
 import CreatorFollowUp from "@/components/CreatorFollowUp";
 
+function compactCount(n: number) {
+  if (!n || n <= 0) return null;
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toLocaleString();
+}
+
+function trendPrefix(kind: string) {
+  if (kind === "sound") return "♪";
+  if (kind === "hashtag") return "#";
+  return "";
+}
+
 function flagText(flags: unknown[]) {
   return flags
     .map((f) => {
@@ -521,7 +535,7 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
               checked={includePresetCatalog}
               onChange={(e) => setIncludePresetCatalog(e.target.checked)}
             />
-            Include demo catalog (100 fictional creators per TikTok, Instagram, Facebook, Twitch)
+            Include demo catalog (300 fictional creators per country — 5 per niche on each of TikTok / Instagram / Facebook / Twitch)
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -545,11 +559,10 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
             disabled={trendsLoading || loading}
             className="w-full border border-border-strong rounded-lg py-2.5 text-sm font-medium hover:border-accent"
           >
-            {trendsLoading ? "Loading live trends…" : "TikTok rising — top 5 now"}
+            {trendsLoading ? "Loading hot search…" : "TikTok hot search"}
           </button>
           <p className="text-xs text-muted">
-            Suggests the five hottest topics from the live video chart, then finds indexed TikTok handles. Follower
-            counts are not available unless that creator Connects.
+            Small hashtag and sound bubbles. Viewership under each bubble is chart or labelled demo totals — not other people’s TikTok analytics.
           </p>
           {error && <p className="text-sm text-red-400">{error}</p>}
         </aside>
@@ -558,19 +571,42 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
           {trends && (
             <div className="space-y-4">
               <div>
-                <h2 className="font-medium text-lg">TikTok rising</h2>
+                <h2 className="font-medium text-lg">TikTok hot search</h2>
                 <p className="text-xs text-muted">
-                  Suggested live topics (not a search box). Indexed handles only — no TikTok follower/view API.
+                  Smaller bubbles are hashtags and sounds. The number underneath is attributed viewership for that
+                  trend — not a crawl of every TikTok.
                 </p>
-                {trends.suggestions?.length ? (
-                  <p className="text-sm mt-2">
-                    Now:{" "}
+                {trends.trends.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-x-3 gap-y-4">
+                    {trends.trends.slice(0, 14).map((t) => {
+                      const views = compactCount(t.views);
+                      return (
+                        <div key={`${t.kind}-${t.label}`} className="w-[4.75rem] flex flex-col items-center text-center">
+                          <span className="inline-flex max-w-full items-center justify-center rounded-full bg-accent-soft px-2 py-1 text-[10px] font-medium leading-tight text-accent-text">
+                            <span className="truncate">
+                              {trendPrefix(t.kind)}
+                              {t.label.replace(/^#/, "")}
+                            </span>
+                          </span>
+                          <span className="mt-1 text-[10px] font-semibold tabular-nums text-foreground">
+                            {views ? `${views} views` : "views n/a"}
+                          </span>
+                          <span className="text-[9px] capitalize text-muted">{t.kind === "sound" ? "sound" : t.kind}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : trends.suggestions?.length ? (
+                  <div className="mt-3 flex flex-wrap gap-x-3 gap-y-4">
                     {trends.suggestions.map((s) => (
-                      <span key={s} className="inline-block mr-2 mb-1 rounded-full bg-accent-soft px-2 py-0.5 text-xs">
-                        #{s}
-                      </span>
+                      <div key={s} className="w-[4.75rem] flex flex-col items-center text-center">
+                        <span className="inline-flex max-w-full items-center justify-center rounded-full bg-accent-soft px-2 py-1 text-[10px] font-medium text-accent-text">
+                          <span className="truncate">#{s}</span>
+                        </span>
+                        <span className="mt-1 text-[10px] text-muted">views n/a</span>
+                      </div>
                     ))}
-                  </p>
+                  </div>
                 ) : null}
               </div>
               {trends.notes.map((n) => (
@@ -610,7 +646,7 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
                     <div key={t.label} className="card-sm p-3 text-sm">
                       <p className="font-medium">{t.label}</p>
                       <ul className="mt-1 space-y-1 text-xs text-muted">
-                        {t.hits.slice(0, 4).map((h) => (
+                        {t.hits.slice(0, 5).map((h) => (
                           <li key={h.videoId}>
                             <a href={h.videoUrl} target="_blank" rel="noreferrer" className="text-accent-text">
                               {h.channelTitle}
