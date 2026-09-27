@@ -2,9 +2,9 @@ import { mergeBrand } from "./brand";
 import { extractHandles } from "./handles";
 import { llmAvailable, llmFit, llmTranslate } from "./llm";
 import { matchesSelectedCountries } from "./localeMatch";
-import { getMarket } from "./markets";
+import { countrySearchLabels, getMarket } from "./markets";
 import { draftMessage, hoursSaved, ruleReasons } from "./messages";
-import { dictionaryTerms, isNicheId, looksLikePcHardware, nichesFromBrief, shouldExcludePcHardware, buildTermsPerMarket, youtubeSearchQuery } from "./niches";
+import { dictionaryTerms, isNicheId, looksLikePcHardware, nichesFromBrief, shouldExcludePcHardware, buildTermsPerMarket, youtubeSearchPlan } from "./niches";
 import { sampleDiscover } from "./sample";
 import { scoreCreator, TIER_BENCHMARK } from "./scoring";
 import { connectedOptInCreators } from "./optInCreators";
@@ -19,7 +19,7 @@ import { discoverViaSearchIndex } from "./webDiscover";
 import { twitchDiscoverCreators } from "./twitchCreators";
 import { twitchConfigured } from "./twitch";
 import type { CreatorAccount, DiscoverRequest, DiscoverResponse, MarketTerms, RecentPost, ScoredCreator } from "./types";
-import { fetchChannels, fetchVideos, searchRecentVideos, youtubeUrl, type YtChannel, type YtVideoHit, type YtVideoStats } from "./youtube";
+import { fetchChannels, fetchVideos, searchChannels, searchRecentVideos, youtubeUrl, type YtChannel, type YtVideoHit, type YtVideoStats } from "./youtube";
 
 function youtubeKey(reqKey?: string) {
   const fromEnv = (process.env.YOUTUBE_API_KEY ?? "").trim();
@@ -311,7 +311,7 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
   for (const code of passCodes) {
     const worldwide = code === "WW";
     const market = worldwide
-      ? { language: "en", ytRegion: "", name: "Worldwide", languageName: "English" }
+      ? { code: "WW", language: "en", ytRegion: "", name: "Worldwide", languageName: "English" }
       : getMarket(code);
     const terms = dictionaryTerms(niches, market.language);
     if (llmAvailable() && fromIds.length === 0 && req.brand?.pitch) {
@@ -319,36 +319,45 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
       if (translated?.terms.length) terms.push(...translated.terms);
     }
 
-    const q = worldwide
-      ? dictionaryTerms(niches, "en")[0] || req.brief.split(",")[0]?.trim() || "gameplay"
-      : youtubeSearchQuery(niches, market.language, market.name);
-    let search = await searchRecentVideos({
-      key,
-      q,
-      regionCode: worldwide ? undefined : market.ytRegion,
-      relevanceLanguage: worldwide ? undefined : market.language,
-      order: "relevance",
-      maxResults: 50,
-    });
-    units += search.units;
-    if (search.items.length === 0 && terms[1]) {
-      const retry = await searchRecentVideos({
+    const grouped = new Map<string, YtVideoHit[]>();
+    const addVideoHits = (items: YtVideoHit[]) => {
+      for (const v of items) {
+        const list = grouped.get(v.channelId) ?? [];
+        if (list.length < 5) list.push(v);
+        grouped.set(v.channelId, list);
+      }
+    };
+
+    const userQ = (req.brand?.pitch ?? "").trim();
+    const plan = worldwide
+      ? youtubeSearchPlan(niches, "en", undefined, userQ)
+      : youtubeSearchPlan(niches, market.language, countrySearchLabels(market), userQ);
+    const regionCode = worldwide ? undefined : market.ytRegion;
+
+    for (const step of plan) {
+      const batch = await searchRecentVideos({
         key,
-        q: terms[1],
-          regionCode: worldwide ? undefined : market.ytRegion,
-          relevanceLanguage: worldwide ? undefined : market.language,
+        q: step.q,
+        regionCode,
+        relevanceLanguage: step.relevanceLanguage,
         order: "relevance",
         maxResults: 50,
       });
-      units += retry.units;
-      search = retry;
+      units += batch.units;
+      addVideoHits(batch.items);
     }
-
-    const grouped = new Map<string, YtVideoHit[]>();
-    for (const v of search.items) {
-      const list = grouped.get(v.channelId) ?? [];
-      if (list.length < 5) list.push(v);
-      grouped.set(v.channelId, list);
+    for (const step of plan) {
+      const chSearch = await searchChannels({
+        key,
+        q: step.q,
+        regionCode,
+        relevanceLanguage: step.relevanceLanguage,
+        maxResults: 50,
+      });
+      units += chSearch.units;
+      for (const channelId of chSearch.channelIds) {
+        if (!grouped.has(channelId)) grouped.set(channelId, []);
+      }
     }
     const channelIds = [...grouped.keys()];
     const chRes = await fetchChannels(key, channelIds);
@@ -393,7 +402,7 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
         channel,
         stats,
         hits,
-        briefTerms: [...new Set([...terms, ...brand.goodFitWords.slice(0, 10)])],
+        briefTerms: [...new Set([...terms, ...dictionaryTerms(niches, "en"), ...brand.goodFitWords.slice(0, 10)])],
         marketCode: worldwide ? "WW" : code,
         marketLang: market.language,
         brand,
@@ -426,22 +435,27 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
           c.scoringMode = "rules+llm";
           c.components.nicheRelevance = Math.round(c.components.nicheRelevance * 0.5 + fit.fit * 0.5);
           c.fit = Math.round(c.fit * 0.7 + fit.fit * 0.3);
-          if (fit.risks.length) c.flags = [...new Set([...c.flags, ...fit.risks])];
+          if (fit.risks.length) {
+            const riskText = fit.risks.filter((r): r is string => typeof r === "string" && r.trim().length > 0);
+            c.flags = [...new Set([...c.flags, ...riskText])];
+          }
           c.hiddenGem = c.fit >= 70 && c.followers < 50_000 && c.flags.length === 0;
         }
       }
     }
     allCreators.push(...marketCreators);
     notes.push(
-      `${code}: YouTube “${q}” → ${search.items.length} videos, ${grouped.size} channels, ${marketCreators.length} listed` +
-        (droppedSize ? `, ${droppedSize} outside follower range` : "") +
-        (droppedCountry ? `, ${droppedCountry} failed country check` : "") +
+      `${code}: YouTube ${plan.map((s) => `“${s.q}”`).join(" + ")} → ${grouped.size} channels, ${marketCreators.length} in the selected subscriber range` +
+        (droppedSize
+          ? `, ${droppedSize} other YouTube hits were outside ${req.sizeMin.toLocaleString()}–${sizeRangeActive(req.sizeMin, req.sizeMax) ? `${req.sizeMax.toLocaleString()}` : "any"} (mega/nano — not the missing mid-tier names)`
+          : "") +
+        (droppedCountry ? `, ${droppedCountry} failed country/language check` : "") +
         ".",
     );
   }
 
   allCreators.sort((a, b) => b.fit - a.fit);
-  notes.push("YouTube Data API v3 live search (relevance, region). Linked TikTok/Instagram handles come from public channel descriptions only.");
+  notes.push("YouTube Data API has no subscriber filter. Scout asks for videos/channels matching your brief, then keeps those whose listed subscriber count is in range. A 90k creator is not dropped for size unless YouTube returned them with a count outside that range — if they never appear, they were not in YouTube’s search hits.");
   notes.push("No messages are sent automatically. Marketer must edit and send.");
   if (!llmAvailable()) notes.push("OPENAI_API_KEY missing — query translation used the niche dictionary; fit is rules-only.");
 

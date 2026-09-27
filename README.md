@@ -40,14 +40,11 @@ Without keys, **Auto** mode returns **labelled sample** YouTube profiles (fictio
 | `OPENAI_BASE_URL` | Optional compatible gateway |
 | `OPENAI_MODEL` | Defaults to `gpt-4o-mini` |
 
-## Demo flow (60 seconds)
+## Demo flow
 
-1. Open `/app?demo=1` (also on the home page: **60-second judge demo**). Presets: Gaming, Vietnam, YouTube only, demo catalog off.
-2. Run discovery. **Showing** should match **Found**. Open a card → Why → follow-up (“How well known are they?”).
-3. Optional: `/lens` — paste one public profile. Brand name is optional.
-4. Say plainly: YouTube is live API. Other platforms are labelled demo / Connect / Lens. Nothing is sent to creators.
-
-Without `?demo=1`, pick any niche and country yourself. Keep the demo catalog unchecked for a live YouTube-only list.
+1. Pick a niche and a country, then run discovery. Keep the demo catalog unchecked for a live YouTube-only list.
+2. Open a card → Why → follow-up. Brand fit is on `/lens` for one profile you already have open.
+3. YouTube is live API. Other platforms are labelled demo / Connect / Lens. Nothing is sent to creators.
 
 ## Stack
 

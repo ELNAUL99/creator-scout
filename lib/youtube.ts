@@ -88,8 +88,10 @@ export async function searchRecentVideos(opts: {
   publishedAfter?: string;
   order?: "date" | "relevance" | "viewCount" | "rating";
   maxResults?: number;
-}): Promise<{ items: YtVideoHit[]; units: number }> {
+  pageToken?: string;
+}): Promise<{ items: YtVideoHit[]; nextPageToken?: string; units: number }> {
   type SearchRes = {
+    nextPageToken?: string;
     items?: {
       id?: { videoId?: string };
       snippet?: {
@@ -111,6 +113,7 @@ export async function searchRecentVideos(opts: {
   if (opts.regionCode) params.regionCode = opts.regionCode;
   if (opts.relevanceLanguage) params.relevanceLanguage = opts.relevanceLanguage;
   if (opts.publishedAfter) params.publishedAfter = opts.publishedAfter;
+  if (opts.pageToken) params.pageToken = opts.pageToken;
   const data = await ytGet<SearchRes>("search", params, opts.key);
   const items: YtVideoHit[] = [];
   for (const it of data.items ?? []) {
@@ -126,7 +129,43 @@ export async function searchRecentVideos(opts: {
       publishedAt: it.snippet?.publishedAt ?? "",
     });
   }
-  return { items, units: 100 };
+  return { items, nextPageToken: data.nextPageToken, units: 100 };
+}
+
+export async function searchChannels(opts: {
+  key: string;
+  q: string;
+  regionCode?: string;
+  relevanceLanguage?: string;
+  maxResults?: number;
+  pageToken?: string;
+}): Promise<{ channelIds: string[]; nextPageToken?: string; units: number }> {
+  type SearchRes = {
+    nextPageToken?: string;
+    items?: {
+      id?: { channelId?: string };
+    }[];
+  };
+  const params: Record<string, string> = {
+    part: "snippet",
+    type: "channel",
+    q: opts.q,
+    order: "relevance",
+    maxResults: String(opts.maxResults ?? 25),
+  };
+  if (opts.regionCode) params.regionCode = opts.regionCode;
+  if (opts.relevanceLanguage) params.relevanceLanguage = opts.relevanceLanguage;
+  if (opts.pageToken) params.pageToken = opts.pageToken;
+  const data = await ytGet<SearchRes>("search", params, opts.key);
+  const channelIds: string[] = [];
+  const seen = new Set<string>();
+  for (const it of data.items ?? []) {
+    const id = it.id?.channelId;
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    channelIds.push(id);
+  }
+  return { channelIds, nextPageToken: data.nextPageToken, units: 100 };
 }
 
 export async function fetchChannels(key: string, ids: string[]): Promise<{ items: YtChannel[]; units: number }> {

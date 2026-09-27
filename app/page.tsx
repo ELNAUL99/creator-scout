@@ -41,12 +41,6 @@ export default function Landing() {
               <Link href="/app" className="btn-primary px-6 py-3 font-semibold inline-flex items-center gap-2">
                 Start scouting <span aria-hidden>→</span>
               </Link>
-              <Link
-                href="/app?demo=1"
-                className="rounded-full border border-border-strong px-6 py-3 text-sm font-semibold hover:border-accent"
-              >
-                60-second judge demo
-              </Link>
             </div>
             <p className="mt-6 text-sm text-muted flex flex-wrap gap-x-5 gap-y-1">
               <span>Trusted for small-market discovery</span>
@@ -61,7 +55,7 @@ export default function Landing() {
           <div className="card p-5">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">Scouting workspace</p>
-              <span className="badge px-2.5 py-0.5 text-[10px]">Live</span>
+              <span className="badge px-2.5 py-0.5 text-[10px]">Example</span>
             </div>
             <div className="mt-4 grid grid-cols-3 gap-3">
               {[
@@ -97,6 +91,10 @@ export default function Landing() {
                 </div>
               ))}
             </div>
+            <p className="mt-3 text-[11px] text-muted">
+              Illustrative shortlist — not a live YouTube result. Real names from the collab sheet only appear in the
+              app if you opt into that spreadsheet.
+            </p>
             <div className="mt-3 flex justify-end">
               <div className="card-sm px-3 py-2 text-right">
                 <div className="text-[11px] text-muted">Match quality</div>
@@ -105,38 +103,6 @@ export default function Landing() {
             </div>
           </div>
         </div>
-
-        <section className="pb-12">
-          <div className="card p-6 md:p-8">
-            <span className="badge badge-dot px-3 py-1 text-[11px]">FOR JUDGES · ~60 SECONDS</span>
-            <h2 className="mt-4 text-2xl font-bold tracking-tight">Talk track</h2>
-            <ol className="mt-4 space-y-3 text-sm text-muted list-decimal list-inside">
-              <li>
-                Open{" "}
-                <Link href="/app?demo=1" className="text-accent-text underline">
-                  Gaming × Vietnam × YouTube
-                </Link>
-                . Demo catalog is off. Hit <strong className="text-foreground">Run discovery</strong>. Showing should
-                match Found.
-              </li>
-              <li>
-                Open a creator → Why (niche, audience, engagement) → ask “How well known are they?” Nothing is sent
-                automatically.
-              </li>
-              <li>
-                Optional:{" "}
-                <Link href="/lens" className="text-accent-text underline">
-                  Scout Lens
-                </Link>{" "}
-                for brand name + one profile you already have open.
-              </li>
-            </ol>
-            <p className="mt-4 text-xs text-muted">
-              YouTube is live Data API. TikTok / Instagram / Facebook / Twitch lists are labelled demo unless you Connect
-              or open a profile in Lens. No scraping, fake accounts, or login bypass.
-            </p>
-          </div>
-        </section>
 
         {/* Steps */}
         <div className="grid gap-5 md:grid-cols-3 pb-16">

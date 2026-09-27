@@ -75,3 +75,40 @@ export function getMarket(code: string): Market {
     }
   );
 }
+
+/** English country name plus how people search locally (e.g. Suomi, not only Finland). */
+const LOCAL_PLACE_NAMES: Record<string, string[]> = {
+  FI: ["Suomi"],
+  SE: ["Sverige"],
+  NO: ["Norge"],
+  DK: ["Danmark"],
+  IS: ["Ísland"],
+  EE: ["Eesti"],
+  LV: ["Latvija"],
+  LT: ["Lietuva"],
+  DE: ["Deutschland"],
+  AT: ["Österreich"],
+  CH: ["Schweiz"],
+  NL: ["Nederland"],
+  BE: ["België", "Belgique"],
+  FR: ["France"],
+  ES: ["España"],
+  PT: ["Portugal"],
+  IT: ["Italia"],
+  PL: ["Polska"],
+  CZ: ["Česko"],
+  HU: ["Magyarország"],
+  RO: ["România"],
+  TR: ["Türkiye"],
+  UA: ["Україна"],
+  BR: ["Brasil"],
+  MX: ["México"],
+  JP: ["日本"],
+  KR: ["한국"],
+  VN: ["Việt Nam", "Viet Nam"],
+  ID: ["Indonesia"],
+};
+
+export function countrySearchLabels(market: { code: string; name: string }): string[] {
+  return [...new Set([market.name, ...(LOCAL_PLACE_NAMES[market.code.toUpperCase()] ?? [])])];
+}

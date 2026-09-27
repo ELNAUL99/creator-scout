@@ -1,6 +1,21 @@
 export type TranslateOut = { terms: string[]; niche: string };
 export type FitOut = { fit: number; reasons: string[]; risks: string[] };
 
+function stringList(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (item && typeof item === "object") {
+        const o = item as Record<string, unknown>;
+        const text = o.text ?? o.reason ?? o.risk ?? o.message ?? o.title;
+        if (typeof text === "string") return text.trim();
+      }
+      return "";
+    })
+    .filter(Boolean);
+}
+
 function parseJson<T>(raw: string): T | null {
   const trimmed = raw.trim().replace(/^```json\s*/i, "").replace(/```$/i, "");
   try {
@@ -148,8 +163,8 @@ JSON only: {"fit": 0-100, "reasons": ["..."], "risks": ["..."]}`;
   if (parsed.fit < 0 || parsed.fit > 100) return null;
   return {
     fit: Math.round(parsed.fit),
-    reasons: (parsed.reasons ?? []).slice(0, 4),
-    risks: parsed.risks ?? [],
+    reasons: stringList(parsed.reasons).slice(0, 4),
+    risks: stringList(parsed.risks).slice(0, 6),
   };
 }
 

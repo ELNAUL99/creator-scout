@@ -200,7 +200,7 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          brief: nicheIds.map((id) => NICHE_TERMS[id].label).join(", "),
+          brief: [brandWish.trim(), ...nicheIds.map((id) => NICHE_TERMS[id].label)].filter(Boolean).join(". "),
           nicheIds,
           markets,
           sizeMin: followerMin,
@@ -361,8 +361,8 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
           )}
           {markets.length > 0 && (
             <p className="text-xs text-muted">
-              Default: creators in {markets.join(", ")} plus channels that clearly make that language (including
-              localised videos aimed at that audience). English-only foreign channels stay out.
+              Default: creators in {markets.join(", ")}. Search runs in English and that country’s language. English-only
+              foreign channels still stay out unless they look aimed at that audience.
             </p>
           )}
           <div className="space-y-2">
@@ -462,8 +462,8 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
               })}
             </div>
             <p className="text-xs text-muted">
-              Only listed follower/subscriber counts in this range. Unknown or hidden counts are dropped. Search again
-              after changing size.
+              YouTube does not search “everyone with 50–100k subs.” It returns channels/videos for your brief, then Scout
+              drops hits outside this range. A mid-tier creator only appears if YouTube included them in those hits.
             </p>
             <div className="flex items-center gap-2">
               <input
@@ -521,7 +521,7 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
               checked={includePrenewCollabs}
               onChange={(e) => setIncludePrenewCollabs(e.target.checked)}
             />
-            Also list Prenew collab-sheet names (Prenew demo only)
+            Also list names from the hackathon collab spreadsheet (not YouTube — those people only appear if you tick this)
           </label>
           <button
             type="button"
@@ -831,8 +831,10 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
                         ))}
                       </ul>
                     )}
-                    {c.flags.length > 0 && (
-                      <p className="mt-2 text-xs text-red-300">{c.flags.join(" · ")}</p>
+                    {c.flags.filter((f) => typeof f === "string" && f.trim()).length > 0 && (
+                      <p className="mt-2 text-xs text-red-300">
+                        {c.flags.filter((f) => typeof f === "string").join(" · ")}
+                      </p>
                     )}
                     {openId === c.id && (
                       <div className="mt-3 text-sm space-y-2 text-muted">

@@ -28,23 +28,23 @@ export const NICHE_TERMS: Record<NicheId, { label: string; terms: TermsByLang }>
   gaming: {
     label: "Gaming",
     terms: {
-      en: ["gameplay", "let's play"],
-      es: ["gameplay", "let's play"],
-      pt: ["gameplay", "let's play"],
-      fr: ["gameplay", "let's play"],
-      de: ["Gameplay", "Let's Play"],
-      it: ["gameplay", "let's play"],
-      nl: ["gameplay", "let's play"],
-      sv: ["gameplay", "let's play"],
-      no: ["gameplay", "let's play"],
-      da: ["gameplay", "let's play"],
-      fi: ["pelivideo", "let's play"],
-      et: ["gameplay", "let's play"],
-      pl: ["gameplay", "zagrajmy"],
-      tr: ["oyun videosu", "gameplay"],
-      ja: ["実況", "ゲームプレイ"],
-      ko: ["게임플레이", "실황"],
-      vi: ["chơi game", "gameplay việt", "livestream game"],
+      en: ["gameplay", "let's play", "gaming", "game"],
+      es: ["gameplay", "let's play", "gaming", "juego"],
+      pt: ["gameplay", "let's play", "gaming", "jogo"],
+      fr: ["gameplay", "let's play", "gaming", "jeu"],
+      de: ["Gameplay", "Let's Play", "Gaming", "Spiel"],
+      it: ["gameplay", "let's play", "gaming", "gioco"],
+      nl: ["gameplay", "let's play", "gaming", "game"],
+      sv: ["gameplay", "let's play", "gaming", "spel"],
+      no: ["gameplay", "let's play", "gaming", "spill"],
+      da: ["gameplay", "let's play", "gaming", "spil"],
+      fi: ["pelivideo", "pelivideot", "peli", "let's play", "gaming", "game"],
+      et: ["gameplay", "let's play", "mäng", "gaming"],
+      pl: ["gameplay", "zagrajmy", "gaming", "gra"],
+      tr: ["oyun videosu", "gameplay", "gaming", "oyun"],
+      ja: ["実況", "ゲームプレイ", "ゲーム"],
+      ko: ["게임플레이", "실황", "게임"],
+      vi: ["chơi game", "gameplay việt", "livestream game", "gaming", "game"],
     },
   },
   "pc-building": {
@@ -393,13 +393,14 @@ export function dictionaryTerms(niches: NicheId[], language: string): string[] {
   const terms: string[] = [];
   for (const id of niches) {
     const pack = NICHE_TERMS[id]?.terms;
-    const local = EXTRA_TERMS[id]?.[language] ?? pack?.[language] ?? pack?.en ?? [];
-    terms.push(...local);
+    const fromPack = pack?.[language] ?? pack?.en ?? [];
+    const extra = EXTRA_TERMS[id]?.[language] ?? [];
+    terms.push(...fromPack, ...extra);
   }
-  return [...new Set(terms)].slice(0, 6);
+  return [...new Set(terms)];
 }
 
-/** Prefer a local-language term so regionCode=VN does not return global “gameplay” English channels. */
+/** Local-language query for a market (used together with English + country). */
 export function youtubeSearchQuery(niches: NicheId[], language: string, countryName?: string) {
   const local = dictionaryTerms(niches, language);
   const en = dictionaryTerms(niches, "en");
@@ -409,6 +410,52 @@ export function youtubeSearchQuery(niches: NicheId[], language: string, countryN
   }
   if (countryName && language !== "en") q = `${q} ${countryName}`;
   return q;
+}
+
+export type YoutubeQuery = { q: string; relevanceLanguage?: string };
+
+/** All English + local keywords, with both the English country name and the local name (Suomi, Việt Nam, …). */
+export function youtubeSearchPlan(
+  niches: NicheId[],
+  language: string,
+  countryLabels?: string[],
+  userBrief?: string,
+): YoutubeQuery[] {
+  const seen = new Set<string>();
+  const out: YoutubeQuery[] = [];
+  const add = (q: string, relevanceLanguage?: string) => {
+    const t = q.trim();
+    if (!t) return;
+    const key = `${t.toLowerCase()}|${(relevanceLanguage ?? "").toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ q: t, relevanceLanguage });
+  };
+  const brief = userBrief?.trim();
+  const en = dictionaryTerms(niches, "en");
+  const local = dictionaryTerms(niches, language);
+  const places = [...new Set((countryLabels ?? []).map((s) => s.trim()).filter(Boolean))];
+
+  if (brief) {
+    add(brief, language === "en" ? undefined : "en");
+    if (language !== "en") add(brief, language);
+    for (const place of places) {
+      add(`${brief} ${place}`, "en");
+      if (language !== "en") add(`${brief} ${place}`, language);
+    }
+  }
+
+  for (const term of en) {
+    add(term, "en");
+    for (const place of places) add(`${term} ${place}`, "en");
+  }
+  if (language !== "en") {
+    for (const term of local) {
+      add(term, language);
+      for (const place of places) add(`${term} ${place}`, language);
+    }
+  }
+  return out;
 }
 
 export function englishTerms(niches: NicheId[]): string[] {
@@ -438,7 +485,7 @@ export function buildTermsPerMarket(niches: NicheId[], codes?: string[]): Market
     language: market.language,
     languageName: market.languageName,
     region: market.region,
-    terms: dictionaryTerms(niches, market.language),
+    terms: [...new Set([...dictionaryTerms(niches, market.language), ...dictionaryTerms(niches, "en")])],
     originalTerms,
     niche: niches[0],
     source: "dictionary" as const,
