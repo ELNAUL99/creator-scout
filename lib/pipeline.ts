@@ -335,9 +335,11 @@ async function runLiveDiscover(req: DiscoverRequest, key: string): Promise<Disco
     const addVideoHits = (items: YtVideoHit[]) => {
       for (const v of items) {
         const list = grouped.get(v.channelId) ?? [];
-        // 3 videos/channel is enough to estimate avg views/engagement, and keeps
-        // the follow-up videos.list fan-out small when discovering ~500 channels.
-        if (list.length < 3) list.push(v);
+        // Dedupe by video id — the same video can come back from multiple keyword
+        // queries, and we must not count it 2–3× (it skews avg/peak views).
+        // 3 distinct videos/channel is enough to estimate avg views/engagement and
+        // keeps the videos.list fan-out small when discovering ~500 channels.
+        if (list.length < 3 && !list.some((x) => x.videoId === v.videoId)) list.push(v);
         grouped.set(v.channelId, list);
       }
     };
