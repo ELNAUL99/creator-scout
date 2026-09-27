@@ -6,7 +6,7 @@ import type { BrandProfile, Platform, ScoredCreator } from "./types";
 function dataSourceLabel(platform: Platform, source: ScoredCreator["accounts"][0]["source"]) {
   if (source === "web") return "Search-engine index (site: query) — not platform scraping";
   if (source === "api") {
-    if (platform === "twitch") return "Twitch Helix search + VOD/stream stats";
+    if (platform === "twitch") return "Twitch Helix category streams + VOD stats";
     if (platform === "instagram") return "Instagram Graph API Business Discovery";
     if (platform === "youtube") return "YouTube Data API v3";
     return "Official platform API";

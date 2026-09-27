@@ -1,7 +1,36 @@
+import { NICHE_TERMS, type NicheId } from "./niches";
+
 export function twitchConfigured() {
   return Boolean(
     (process.env.TWITCH_CLIENT_ID ?? "").trim() && (process.env.TWITCH_CLIENT_SECRET ?? "").trim(),
   );
+}
+
+/** Twitch directory categories (English names) per Scout niche — not channel-name keywords. */
+const TWITCH_CATEGORIES: Record<NicheId, string[]> = {
+  gaming: ["League of Legends", "Minecraft", "VALORANT", "Grand Theft Auto V", "Fortnite"],
+  "fps-esports": ["VALORANT", "Counter-Strike", "Call of Duty", "Overwatch 2"],
+  "pc-building": ["Science & Technology", "Software and Game Development"],
+  "tech-reviews": ["Science & Technology", "Software and Game Development"],
+  "budget-second-hand": ["Science & Technology"],
+  sustainability: ["Science & Technology", "Talk Shows & Podcasts"],
+  beauty: ["Just Chatting", "Art", "ASMR"],
+  fitness: ["Sports", "Just Chatting"],
+  food: ["Food & Drink"],
+  travel: ["Travel & Outdoors"],
+  fashion: ["Just Chatting"],
+  parenting: ["Just Chatting"],
+  "personal-finance": ["Talk Shows & Podcasts", "Just Chatting"],
+  "diy-home": ["Science & Technology", "Art"],
+  pets: ["Animals, Aquariums, and Zoos", "Just Chatting"],
+};
+
+export function twitchCategoryQueries(niches: NicheId[]): string[] {
+  const out: string[] = [];
+  for (const id of niches) {
+    out.push(...(TWITCH_CATEGORIES[id] ?? [NICHE_TERMS[id]?.label ?? "Just Chatting"]));
+  }
+  return [...new Set(out)].slice(0, 6);
 }
 
 export type TwitchChannel = {
@@ -149,52 +178,115 @@ async function getAppToken(): Promise<string | null> {
 }
 
 /**
- * Search Twitch channels by keyword (Helix Search Channels). App token only —
- * identity + language + live status, not follower counts.
- * Empty personal accounts (not live, no VOD, no clip) are dropped.
+ * Niche discovery: resolve Twitch directory categories, then live streams + VODs
+ * in those games. Not Helix Search Channels (that matches display names).
  */
-export async function searchTwitchChannels(query: string, first = 20): Promise<TwitchChannel[]> {
+export async function discoverTwitchByNiche(opts: {
+  queries: string[];
+  language?: string;
+  first?: number;
+}): Promise<TwitchChannel[]> {
   const token = await getAppToken();
-  if (!token || !query.trim()) return [];
-  const want = Math.min(Math.max(first, 1), 100);
-  const fetchCount = Math.min(100, Math.max(want * 2, 40));
-  const url = new URL("https://api.twitch.tv/helix/search/channels");
-  url.searchParams.set("query", query.trim());
-  url.searchParams.set("first", String(fetchCount));
-  const res = await fetch(url, {
-    headers: helixHeaders(token),
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    console.error("twitch: search failed", res.status, await res.text().catch(() => ""));
-    return [];
+  if (!token || !opts.queries.length) return [];
+  const want = Math.min(Math.max(opts.first ?? 30, 1), 100);
+  const lang = opts.language?.trim().toLowerCase();
+
+  const games: { id: string; name: string }[] = [];
+  const seenGame = new Set<string>();
+  for (const q of opts.queries) {
+    const rows = await helixList(token, "search/categories", { query: q, first: "5" });
+    for (const r of rows) {
+      const id = typeof r.id === "string" ? r.id : "";
+      const name = typeof r.name === "string" ? r.name : "";
+      if (!id || seenGame.has(id)) continue;
+      seenGame.add(id);
+      games.push({ id, name });
+      if (games.length >= 5) break;
+    }
+    if (games.length >= 5) break;
   }
-  const data = (await res.json()) as {
-    data?: {
-      id?: string;
-      broadcaster_login?: string;
-      display_name?: string;
-      game_name?: string;
-      broadcaster_language?: string;
-      is_live?: boolean;
-      title?: string;
-      thumbnail_url?: string;
-    }[];
-  };
-  const mapped = (data.data ?? [])
-    .filter((c) => c.id && c.broadcaster_login)
-    .map((c) => ({
-      id: c.id!,
-      login: c.broadcaster_login!,
-      displayName: c.display_name || c.broadcaster_login!,
-      gameName: c.game_name ?? "",
-      language: (c.broadcaster_language ?? "").toLowerCase(),
-      isLive: Boolean(c.is_live),
-      title: c.title ?? "",
-      thumbnailUrl: c.thumbnail_url ?? "",
-      avgViews: 0,
-      peakLiveViewers: 0,
-    }));
-  const withContent = await enrichChannelsWithContent(token, mapped);
-  return withContent.slice(0, want);
+  if (!games.length) return [];
+
+  const byUser = new Map<string, TwitchChannel>();
+  for (const game of games) {
+    const streamParams: Record<string, string> = { game_id: game.id, first: "40" };
+    if (lang) streamParams.language = lang;
+    const streams = await helixList(token, "streams", streamParams);
+    for (const s of streams) {
+      const id = typeof s.user_id === "string" ? s.user_id : "";
+      const login = typeof s.user_login === "string" ? s.user_login : "";
+      if (!id || !login || byUser.has(id)) continue;
+      byUser.set(id, {
+        id,
+        login,
+        displayName: typeof s.user_name === "string" ? s.user_name : login,
+        gameName: typeof s.game_name === "string" ? s.game_name : game.name,
+        language: typeof s.language === "string" ? s.language.toLowerCase() : lang ?? "",
+        isLive: true,
+        title: typeof s.title === "string" ? s.title : "",
+        thumbnailUrl: typeof s.thumbnail_url === "string" ? s.thumbnail_url : "",
+        avgViews: 0,
+        peakLiveViewers: num(s.viewer_count),
+      });
+    }
+    if (byUser.size >= want * 2) break;
+  }
+
+  if (byUser.size < want) {
+    for (const game of games) {
+      const videos = await helixList(token, "videos", { game_id: game.id, first: "30", type: "archive" });
+      for (const v of videos) {
+        const id = typeof v.user_id === "string" ? v.user_id : "";
+        const login = typeof v.user_login === "string" ? v.user_login : "";
+        if (!id || !login || byUser.has(id)) continue;
+        const url = typeof v.url === "string" ? v.url : "";
+        byUser.set(id, {
+          id,
+          login,
+          displayName: typeof v.user_name === "string" ? v.user_name : login,
+          gameName: game.name,
+          language: lang ?? "",
+          isLive: false,
+          title: titleOf(v, ""),
+          thumbnailUrl: "",
+          lastVideoTitle: titleOf(v, ""),
+          avgViews: num(v.view_count),
+          peakLiveViewers: num(v.view_count),
+          videoUrl: url || undefined,
+        });
+      }
+      if (byUser.size >= want * 2) break;
+    }
+  }
+
+  const collected = [...byUser.values()];
+  const withLang = await fillBroadcasterLanguage(token, collected);
+  const filtered = lang
+    ? withLang.filter((c) => !c.language || c.language === lang)
+    : withLang;
+  return enrichChannelsWithContent(token, filtered.slice(0, Math.max(want * 2, 40))).then((rows) =>
+    rows.slice(0, want),
+  );
+}
+
+async function fillBroadcasterLanguage(token: string, channels: TwitchChannel[]): Promise<TwitchChannel[]> {
+  const missing = channels.filter((c) => !c.language);
+  if (!missing.length) return channels;
+  const map = new Map<string, string>();
+  for (let i = 0; i < missing.length; i += 100) {
+    const url = new URL("https://api.twitch.tv/helix/channels");
+    for (const c of missing.slice(i, i + 100)) url.searchParams.append("broadcaster_id", c.id);
+    const res = await fetch(url, { headers: helixHeaders(token), cache: "no-store" });
+    if (!res.ok) continue;
+    const data = (await res.json()) as { data?: { broadcaster_id?: string; broadcaster_language?: string }[] };
+    for (const row of data.data ?? []) {
+      if (row.broadcaster_id && row.broadcaster_language) {
+        map.set(row.broadcaster_id, row.broadcaster_language.toLowerCase());
+      }
+    }
+  }
+  return channels.map((c) => ({
+    ...c,
+    language: c.language || map.get(c.id) || "",
+  }));
 }

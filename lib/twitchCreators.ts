@@ -1,14 +1,11 @@
 import { dictionaryTerms, isNicheId, nichesFromBrief, type NicheId } from "./niches";
 import { getMarket } from "./markets";
 import { scoreVisibleProfile } from "./scoreProfile";
-import { searchTwitchChannels, twitchConfigured } from "./twitch";
+import { discoverTwitchByNiche, twitchCategoryQueries, twitchConfigured } from "./twitch";
 import type { DiscoverRequest, ScoredCreator } from "./types";
 
 /**
- * Live Twitch discovery via Helix Search Channels. Unlike TikTok/Instagram,
- * Twitch is genuinely searchable with an app token. Follower counts aren't
- * available via app token, so results carry followers=0 (kept only under "Any size").
- * Twitch has no country field — broadcaster language is used as the country proxy.
+ * Live Twitch discovery via directory categories + streams/VODs (not channel-name search).
  */
 export async function twitchDiscoverCreators(
   req: DiscoverRequest,
@@ -28,12 +25,12 @@ export async function twitchDiscoverCreators(
     const market = worldwide
       ? { language: "en", name: "Worldwide" }
       : getMarket(code);
-    const enTerm = dictionaryTerms(niches, "en")[0] ?? "gaming";
-    const localTerms = dictionaryTerms(niches, market.language);
-    const query = worldwide
-      ? enTerm
-      : localTerms.find((t) => t.toLowerCase() !== enTerm.toLowerCase()) ?? localTerms[0] ?? enTerm;
-    const channels = await searchTwitchChannels(query, 30);
+    const queries = twitchCategoryQueries(niches);
+    const channels = await discoverTwitchByNiche({
+      queries,
+      language: worldwide ? undefined : market.language,
+      first: 30,
+    });
     for (const ch of channels) {
       const key = `twitch:${ch.login.toLowerCase()}`;
       if (seen.has(key)) continue;
@@ -79,11 +76,11 @@ export async function twitchDiscoverCreators(
 
   if (creators.length) {
     notes.push(
-      `Twitch Helix: ${creators.length} channel(s) with a VOD, clip, or live stream. Cards show avg views and peak live/recorded viewers (not followers).`,
+      `Twitch Helix: ${creators.length} streamer(s) from niche categories (live streams / VODs in those games), not people whose username contains the search word.`,
     );
   } else {
     notes.push(
-      "Twitch (Helix) returned no channels for this niche/country. Try a broader niche, Any size, or fewer country restrictions.",
+      "Twitch found no live streams or VODs in this niche’s directory categories. Try Gaming / FPS, or drop the country language filter.",
     );
   }
   return { creators, notes };

@@ -559,13 +559,13 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
           <button
             type="button"
             onClick={runTrends}
-            disabled={trendsLoading || loading}
+            disabled={trendsLoading || loading || nicheIds.length === 0}
             className="w-full border border-border-strong rounded-lg py-2.5 text-sm font-medium hover:border-accent"
           >
             {trendsLoading ? "Loading hot search…" : "TikTok hot search"}
           </button>
           <p className="text-xs text-muted">
-            Small hashtag and sound bubbles. Viewership under each bubble is chart or labelled demo totals — not other people’s TikTok analytics.
+            Hashtags and sounds follow the niche you picked. Breakout accounts under the bubbles are demo creators in that niche.
           </p>
           {error && <p className="text-sm text-red-400">{error}</p>}
         </aside>
@@ -576,8 +576,8 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
               <div>
                 <h2 className="font-medium text-lg">TikTok hot search</h2>
                 <p className="text-xs text-muted">
-                  Smaller bubbles are hashtags and sounds. The number underneath is attributed viewership for that
-                  trend — not a crawl of every TikTok.
+                  Smaller bubbles are hashtags and sounds for your selected niche. The number underneath is attributed
+                  viewership for that trend — labelled demo, not a TikTok crawl.
                 </p>
                 {trends.trends.length > 0 ? (
                   <div className="mt-3 flex flex-wrap gap-x-3 gap-y-4">
@@ -617,6 +617,54 @@ export default function ScoutApp({ judgeDemo = false }: { judgeDemo?: boolean })
                   {n}
                 </p>
               ))}
+              {trends.trends.some((t) => t.hits.some((h) => h.breakout && h.views > 0)) && (
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-medium">Breakout videos on these trends</p>
+                    <p className="text-xs text-muted">
+                      Small accounts (labelled demo). The video named is the one that picked up views from that
+                      hashtag or sound — not a full creator search.
+                    </p>
+                  </div>
+                  {trends.trends.slice(0, 14).map((t) => {
+                    const examples = t.hits
+                      .filter((h) => h.breakout && h.views > 0)
+                      .sort((a, b) => b.viewsPerSub - a.viewsPerSub)
+                      .slice(0, 2);
+                    if (!examples.length) return null;
+                    const prefix = t.kind === "sound" ? "♪ " : "#";
+                    return (
+                      <div key={`ex-${t.kind}-${t.label}`} className="card-sm p-3 space-y-2">
+                        <p className="text-xs font-medium text-accent-text">
+                          {prefix}
+                          {t.label.replace(/^#/, "")}
+                        </p>
+                        {examples.map((h) => (
+                          <article key={h.videoId} className="text-sm space-y-0.5">
+                            <p>
+                              <a href={h.channelUrl} target="_blank" rel="noreferrer" className="font-medium hover:text-accent-text">
+                                {h.channelTitle}
+                              </a>{" "}
+                              <span className="text-xs text-muted">
+                                {h.followers.toLocaleString()} followers · {(h.viewsPerSub).toFixed(0)}× views/follower
+                              </span>
+                            </p>
+                            <p>
+                              <a href={h.videoUrl} target="_blank" rel="noreferrer" className="text-accent-text text-xs">
+                                {h.videoTitle}
+                              </a>
+                            </p>
+                            <p className="text-[11px] text-muted">
+                              {compactCount(h.views) ?? h.views.toLocaleString()} views on this video because of{" "}
+                              {t.kind === "sound" ? `sound “${t.label}”` : `#${t.label.replace(/^#/, "")}`}
+                            </p>
+                          </article>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
