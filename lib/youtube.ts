@@ -20,6 +20,7 @@ export type YtChannel = {
   subscriberCount: number;
   viewCount: number;
   videoCount: number;
+  startedAt?: string; // channel creation date (snippet.publishedAt)
   keywords?: string;
 };
 
@@ -177,7 +178,7 @@ export async function fetchChannels(key: string, ids: string[]): Promise<{ items
     type ChRes = {
       items?: {
         id?: string;
-        snippet?: { title?: string; description?: string; customUrl?: string; country?: string };
+        snippet?: { title?: string; description?: string; customUrl?: string; country?: string; publishedAt?: string };
         statistics?: { subscriberCount?: string; viewCount?: string; videoCount?: string; hiddenSubscriberCount?: boolean };
         brandingSettings?: { channel?: { keywords?: string } };
       }[];
@@ -199,6 +200,7 @@ export async function fetchChannels(key: string, ids: string[]): Promise<{ items
         subscriberCount: ch.statistics?.hiddenSubscriberCount ? 0 : num(ch.statistics?.subscriberCount),
         viewCount: num(ch.statistics?.viewCount),
         videoCount: num(ch.statistics?.videoCount),
+        startedAt: ch.snippet?.publishedAt,
         keywords: ch.brandingSettings?.channel?.keywords,
       });
     }

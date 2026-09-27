@@ -640,6 +640,8 @@ function buildCreator(opts: {
     followers: channel.subscriberCount,
     tier: scored.tier,
     avgViews: views,
+    totalVideos: channel.videoCount || null,
+    startedAt: channel.startedAt ?? null,
     engagementRate: scored.engagementRate,
     fit: scored.fit,
     components: scored.components,

@@ -45,6 +45,10 @@ export type ScoredCreator = {
   followers: number;
   tier: SizeTier;
   avgViews: number;
+  /** Lifetime total uploads (YouTube statistics.videoCount); null when unknown. */
+  totalVideos?: number | null;
+  /** Channel creation date (YouTube snippet.publishedAt); null when unknown. */
+  startedAt?: string | null;
   engagementRate: number;
   fit: number;
   components: ScoreComponents;

@@ -12,6 +12,9 @@ export type CreatorDossier = {
   fit: number;
   reasons: string[];
   flags: string[];
+  totalVideos: number | null;
+  startedAt: string | null;
+  channelAgeYears: number | null;
   postCountInSample: number;
   lastPublishedAt: string | null;
   daysSinceLastUpload: number | null;
@@ -79,6 +82,11 @@ export function buildCreatorDossier(c: ScoredCreator): CreatorDossier {
     fit: c.fit,
     reasons: c.reasons,
     flags: c.flags,
+    totalVideos: c.totalVideos ?? null,
+    startedAt: c.startedAt ?? null,
+    channelAgeYears: c.startedAt
+      ? Math.max(0, Math.round(((Date.now() - Date.parse(c.startedAt)) / 31_557_600_000) * 10) / 10)
+      : null,
     postCountInSample: c.recentContent.length,
     lastPublishedAt,
     daysSinceLastUpload: daysAgo(lastPublishedAt),
@@ -112,6 +120,8 @@ export function dossierToFacts(d: CreatorDossier) {
     `Fit score: ${d.fit}`,
     `Why: ${d.reasons.join(" ") || "none"}`,
     `Flags: ${d.flags.join("; ") || "none"}`,
+    `Total lifetime uploads (channel): ${d.totalVideos ?? "unknown"}`,
+    `Channel started: ${d.startedAt ?? "unknown"}${d.channelAgeYears != null ? ` (~${d.channelAgeYears} years old)` : ""}`,
     `Posts in this sample: ${d.postCountInSample}`,
     `Last upload (sample): ${d.lastPublishedAt ?? "unknown"}`,
     `Days since last upload: ${d.daysSinceLastUpload ?? "unknown"}`,
